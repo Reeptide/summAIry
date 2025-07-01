@@ -1,1432 +1,1207 @@
 import os
 import re
 import json
-import base64
-from datetime import datetime
-import tempfile
 import shutil
-from typing import List, Dict, Tuple
+import textwrap
+from datetime import datetime
+from typing import List, Dict
 
-# Import the PDF generator
-from pdf_summary_generator import LecturePDFSummaryGenerator
+# PDF libraries
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib.colors import Color, black, blue, darkblue, lightblue, whitesmoke, beige, grey, darkgrey, lightgrey
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER
 
-class CompactSideBySideTimestampedVideoPlayerWithPDF:
+# Semantic similarity for matching transcript to topics
+try:
+    from sentence_transformers import SentenceTransformer
+    from sklearn.metrics.pairwise import cosine_similarity
+    has_sentence_transformers = True
+except ImportError:
+    has_sentence_transformers = False
+
+class LecturePDFSummaryGenerator:
+    """
+    Enhanced PDF generator using semantic similarity to extract relevant transcript content for each topic.
+    """
+    def __init__(self):
+        self.styles = getSampleStyleSheet()
+        self._setup_custom_styles()
+        if has_sentence_transformers:
+            try:
+                self.sentence_model = SentenceTransformer('all-MiniLM-L6-v2')
+            except Exception as e:
+                print(f"⚠️ Could not load sentence transformer: {e}")
+                self.sentence_model = None
+        else:
+            self.sentence_model = None
+
+    def _setup_custom_styles(self):
+        self.styles.add(ParagraphStyle(
+            name='CustomTitle',
+            parent=self.styles['Title'],
+            fontSize=24,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=darkblue,
+            fontName='Helvetica-Bold'
+        ))
+        self.styles.add(ParagraphStyle(
+            name='CustomSubtitle',
+            parent=self.styles['Heading1'],
+            fontSize=16,
+            spaceAfter=20,
+            alignment=TA_CENTER,
+            textColor=blue,
+            fontName='Helvetica'
+        ))
+        self.styles.add(ParagraphStyle(
+            name='TopicHeader',
+            parent=self.styles['Heading2'],
+            fontSize=14,
+            spaceAfter=12,
+            spaceBefore=20,
+            textColor=darkblue,
+            fontName='Helvetica-Bold',
+            leftIndent=0.2*inch
+        ))
+        self.styles.add(ParagraphStyle(
+            name='TopicContent',
+            parent=self.styles['Normal'],
+            fontSize=11,
+            spaceAfter=8,
+            alignment=TA_JUSTIFY,
+            leftIndent=0.4*inch,
+            rightIndent=0.2*inch,
+            fontName='Helvetica'
+        ))
+        self.styles.add(ParagraphStyle(
+            name='Timestamp',
+            parent=self.styles['Normal'],
+            fontSize=10,
+            spaceAfter=15,
+            textColor=grey,
+            leftIndent=0.4*inch,
+            fontName='Helvetica-Oblique'
+        ))
+        self.styles.add(ParagraphStyle(
+            name='SummaryInfo',
+            parent=self.styles['Normal'],
+            fontSize=10,
+            spaceAfter=8,
+            textColor=darkgrey,
+            fontName='Helvetica'
+        ))
+
+    def _time_to_seconds(self, time_str: str) -> int:
+        parts = time_str.split(':')
+        if len(parts) == 2:
+            return int(parts[0]) * 60 + int(parts[1])
+        elif len(parts) == 3:
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+        return 0
+
+    def parse_topics_from_file(self, topics_file: str) -> List[Dict]:
+        with open(topics_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        topics = []
+        lines = content.strip().split('\n')
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+            if not line:
+                continue
+            topic_name = None
+            start_time = None
+            end_time = None
+            # Format 1: *Topic Name**: [MM:SS - MM:SS]
+            match1 = re.match(r'\*(.+?)\*\*:\s*\[(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\]', line)
+            if match1:
+                topic_name = match1.group(1).strip()
+                start_time = match1.group(2)
+                end_time = match1.group(3)
+            elif ' : [' in line and line.endswith(']'):
+                parts = line.split(' : [')
+                if len(parts) == 2:
+                    topic_name = parts[0].strip()
+                    timestamp_part = parts[1].rstrip(']')
+                    if ' - ' in timestamp_part:
+                        start_time, end_time = timestamp_part.split(' - ')
+                        start_time = start_time.strip()
+                        end_time = end_time.strip()
+            elif '(' in line and line.endswith(')'):
+                match3 = re.match(r'(.+?)\s*\((\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\)', line)
+                if match3:
+                    topic_name = match3.group(1).strip()
+                    start_time = match3.group(2)
+                    end_time = match3.group(3)
+            else:
+                timestamp_match = re.search(r'\[(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\]', line)
+                if timestamp_match:
+                    start_time = timestamp_match.group(1)
+                    end_time = timestamp_match.group(2)
+                    topic_name = line[:timestamp_match.start()].strip()
+                    topic_name = re.sub(r'[*:]+$', '', topic_name).strip()
+            if topic_name and start_time and end_time:
+                topic_name = topic_name.strip('*').strip()
+                start_seconds = self._time_to_seconds(start_time)
+                end_seconds = self._time_to_seconds(end_time)
+                if end_seconds > start_seconds:
+                    topics.append({
+                        'name': topic_name,
+                        'start_time': start_time,
+                        'end_time': end_time,
+                        'start_seconds': start_seconds,
+                        'end_seconds': end_seconds,
+                        'duration': end_seconds - start_seconds
+                    })
+        topics.sort(key=lambda x: x['start_seconds'])
+        return topics
+
+    def parse_timestamped_transcript(self, transcript_file: str) -> List[Dict]:
+        with open(transcript_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        segments = []
+        lines = content.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            timestamp_match = re.match(r'\[(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\]\s*(.*)', line)
+            if timestamp_match:
+                start_time = timestamp_match.group(1)
+                end_time = timestamp_match.group(2)
+                text_content = timestamp_match.group(3).strip()
+                if text_content:
+                    segments.append({
+                        'start_time': start_time,
+                        'end_time': end_time,
+                        'content': text_content,
+                        'start_seconds': self._time_to_seconds(start_time),
+                        'end_seconds': self._time_to_seconds(end_time)
+                    })
+        return segments
+
+    def extract_content_for_topics(self, topics: List[Dict], transcript_segments: List[Dict]) -> List[Dict]:
+        enhanced_topics = []
+        for topic in topics:
+            topic_start = topic['start_seconds']
+            topic_end = topic['end_seconds']
+            relevant_segments = []
+            for segment in transcript_segments:
+                if (segment['start_seconds'] < topic_end and segment['end_seconds'] > topic_start):
+                    overlap_start = max(segment['start_seconds'], topic_start)
+                    overlap_end = min(segment['end_seconds'], topic_end)
+                    overlap_duration = overlap_end - overlap_start
+                    if overlap_duration > 0:
+                        segment_duration = segment['end_seconds'] - segment['start_seconds']
+                        overlap_percentage = overlap_duration / segment_duration if segment_duration > 0 else 0
+                        relevant_segments.append({
+                            'content': segment['content'],
+                            'overlap_percentage': overlap_percentage,
+                            'segment_start': segment['start_time'],
+                            'segment_end': segment['end_time']
+                        })
+            explanatory_content = self._find_best_explanatory_content(
+                topic['name'],
+                relevant_segments
+            )
+            enhanced_topic = topic.copy()
+            enhanced_topic['explanatory_content'] = explanatory_content
+            enhanced_topic['source_segments_count'] = len(relevant_segments)
+            enhanced_topics.append(enhanced_topic)
+        return enhanced_topics
+
+    def _find_best_explanatory_content(self, topic_name: str, relevant_segments: List[Dict]) -> List[str]:
+        if not relevant_segments:
+            return [f"Content for '{topic_name}' - please refer to the video at the specified timestamp."]
+        all_content = []
+        for segment in relevant_segments:
+            sentences = re.split(r'(?<=[.?!])\s+', segment['content'])
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if len(sentence) > 20:
+                    all_content.append({
+                        'text': sentence,
+                        'overlap_weight': segment['overlap_percentage']
+                    })
+        if not all_content:
+            return [f"Discussion about {topic_name} - detailed content available in the video."]
+        # Use semantic similarity if available
+        if self.sentence_model and len(all_content) > 3:
+            try:
+                topic_embedding = self.sentence_model.encode([topic_name])
+                sentence_texts = [item['text'] for item in all_content]
+                sentence_embeddings = self.sentence_model.encode(sentence_texts)
+                similarities = cosine_similarity(topic_embedding, sentence_embeddings)[0]
+                for i, item in enumerate(all_content):
+                    item['relevance_score'] = similarities[i] * (1 + item['overlap_weight'])
+                all_content.sort(key=lambda x: x['relevance_score'], reverse=True)
+            except Exception:
+                all_content.sort(key=lambda x: x['overlap_weight'], reverse=True)
+        else:
+            all_content.sort(key=lambda x: x['overlap_weight'], reverse=True)
+        selected_content = []
+        total_length = 0
+        max_total_length = 400
+        for item in all_content:
+            sentence = item['text'].strip()
+            if sentence and len(sentence) > 15:
+                if total_length + len(sentence) <= max_total_length and len(selected_content) < 3:
+                    selected_content.append(sentence)
+                    total_length += len(sentence)
+                elif len(selected_content) == 0:
+                    if len(sentence) > max_total_length:
+                        sentence = sentence[:max_total_length-3] + "..."
+                    selected_content.append(sentence)
+                    break
+        if not selected_content:
+            selected_content = [f"Detailed discussion about {topic_name} available in the video."]
+        return selected_content
+
+    def generate_pdf_summary(self, topics_file: str, transcript_file: str, output_path: str, video_title: str = "Lecture Summary") -> str:
+        topics = self.parse_topics_from_file(topics_file)
+        if not topics:
+            return None
+        transcript_segments = self.parse_timestamped_transcript(transcript_file)
+        enhanced_topics = self.extract_content_for_topics(topics, transcript_segments)
+        doc = SimpleDocTemplate(
+            output_path,
+            pagesize=A4,
+            rightMargin=0.75*inch,
+            leftMargin=0.75*inch,
+            topMargin=1*inch,
+            bottomMargin=1*inch
+        )
+        story = []
+        # Title page
+        story.extend(self._build_title_page(video_title, enhanced_topics))
+        # Summary overview
+        story.extend(self._build_summary_overview(enhanced_topics))
+        # Topic details
+        story.extend(self._build_topic_details(enhanced_topics))
+        # Footer info
+        story.extend(self._build_footer_info(transcript_file))
+        try:
+            doc.build(story)
+            return output_path
+        except Exception as e:
+            print(f"❌ Error generating PDF: {e}")
+            return None
+
+    def _build_title_page(self, video_title: str, topics: List[Dict]) -> List:
+        content = []
+        content.append(Paragraph(video_title, self.styles['CustomTitle']))
+        content.append(Spacer(1, 0.5*inch))
+        content.append(Paragraph("📚 Comprehensive Topic Summary", self.styles['CustomSubtitle']))
+        content.append(Spacer(1, 0.3*inch))
+        total_duration = max(topic['end_seconds'] for topic in topics) if topics else 0
+        total_duration_str = f"{total_duration // 60}:{total_duration % 60:02d}"
+        stats_data = [
+            ['📊 Summary Statistics', ''],
+            ['Total Topics:', str(len(topics))],
+            ['Total Duration:', total_duration_str],
+            ['Generated:', datetime.now().strftime('%B %d, %Y at %I:%M %p')],
+            ['Source:', 'AI-Powered Topic Segmentation'],
+        ]
+        stats_table = Table(stats_data, colWidths=[2.5*inch, 2*inch])
+        stats_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            ('BACKGROUND', (0, 0), (-1, 0), lightblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), darkblue),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 1, lightgrey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        content.append(stats_table)
+        content.append(Spacer(1, 0.5*inch))
+        description = """
+        This document provides a comprehensive summary of the video lecture content, 
+        organized by topics with relevant explanations extracted directly from the 
+        transcript. Each topic includes the timestamp range and key explanatory content 
+        to help you navigate and understand the lecture material effectively.
+        """
+        content.append(Paragraph(description, self.styles['Normal']))
+        content.append(PageBreak())
+        return content
+
+    def _build_summary_overview(self, topics: List[Dict]) -> List:
+        content = []
+        content.append(Paragraph("📋 Topics Overview", self.styles['Heading1']))
+        content.append(Spacer(1, 0.2*inch))
+        table_data = [['#', 'Topic', 'Duration', 'Time Range']]
+        for i, topic in enumerate(topics, 1):
+            duration = topic['end_seconds'] - topic['start_seconds']
+            duration_str = f"{duration // 60}:{duration % 60:02d}"
+            time_range = f"{topic['start_time']} - {topic['end_time']}"
+            topic_name = topic['name']
+            if len(topic_name) > 45:
+                topic_name = textwrap.fill(topic_name, width=45)
+            table_data.append([
+                str(i),
+                topic_name,
+                duration_str,
+                time_range
+            ])
+        overview_table = Table(table_data, colWidths=[0.5*inch, 3.5*inch, 0.8*inch, 1.2*inch])
+        overview_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), beige),
+            ('GRID', (0, 0), (-1, -1), 1, black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        content.append(overview_table)
+        content.append(PageBreak())
+        return content
+
+    def _build_topic_details(self, topics: List[Dict]) -> List:
+        content = []
+        content.append(Paragraph("📖 Detailed Topic Content", self.styles['Heading1']))
+        content.append(Spacer(1, 0.2*inch))
+        for i, topic in enumerate(topics, 1):
+            topic_header = f"{i}. {topic['name']}"
+            content.append(Paragraph(topic_header, self.styles['TopicHeader']))
+            timestamp_info = f"⏰ {topic['start_time']} - {topic['end_time']} " \
+                            f"(Duration: {(topic['end_seconds'] - topic['start_seconds']) // 60}:" \
+                            f"{(topic['end_seconds'] - topic['start_seconds']) % 60:02d})"
+            content.append(Paragraph(timestamp_info, self.styles['Timestamp']))
+            explanatory_content = topic.get('explanatory_content', [])
+            if explanatory_content:
+                content.append(Paragraph("📝 Key Points:", self.styles['Normal']))
+                for explanation in explanatory_content:
+                    explanation = explanation.strip()
+                    if explanation:
+                        bullet_text = f"• {explanation}"
+                        content.append(Paragraph(bullet_text, self.styles['TopicContent']))
+            else:
+                content.append(Paragraph(
+                    "• Detailed content available in the video at the specified timestamp.",
+                    self.styles['TopicContent']
+                ))
+            source_info = f"📊 Extracted from {topic.get('source_segments_count', 0)} transcript segments"
+            content.append(Paragraph(source_info, self.styles['SummaryInfo']))
+            content.append(Spacer(1, 0.3*inch))
+            if i % 4 == 0 and i < len(topics):
+                content.append(PageBreak())
+        return content
+
+    def _build_footer_info(self, transcript_file: str) -> List:
+        content = []
+        content.append(PageBreak())
+        content.append(Paragraph("ℹ️ Generation Information", self.styles['Heading2']))
+        content.append(Spacer(1, 0.1*inch))
+        details = [
+            f"📄 Source Transcript: {os.path.basename(transcript_file)}",
+            f"🤖 Generated by: AI-Powered Video Lecture Summarizer",
+            f"📅 Generation Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"🔧 Content Extraction: Semantic similarity matching with transcript overlap analysis",
+            f"📋 Format: Topic name, timestamp range, and explanatory content from lecture",
+        ]
+        for detail in details:
+            content.append(Paragraph(detail, self.styles['SummaryInfo']))
+            content.append(Spacer(1, 0.1*inch))
+        disclaimer = """
+        <b>Note:</b> This summary is automatically generated from the video lecture transcript. 
+        The explanatory content is extracted directly from the speaker's words during the 
+        corresponding time segments. For complete understanding, please refer to the original 
+        video content at the specified timestamps.
+        """
+        content.append(Spacer(1, 0.2*inch))
+        content.append(Paragraph(disclaimer, self.styles['Normal']))
+        return content
+
+class SideBySideVideoPlayerWithPDF:
     def __init__(self):
         self.topics = []
         self.video_path = ""
         self.output_dir = "timestamped_video_output"
         self.pdf_generator = LecturePDFSummaryGenerator()
-        
-    def parse_timestamp(self, time_str):
-        """Convert MM:SS or HH:MM:SS to seconds"""
+
+    @staticmethod
+    def parse_timestamp(time_str):
         parts = time_str.split(':')
-        if len(parts) == 2:  # MM:SS
+        if len(parts) == 2:
             minutes, seconds = map(int, parts)
             return minutes * 60 + seconds
-        elif len(parts) == 3:  # HH:MM:SS
+        elif len(parts) == 3:
             hours, minutes, seconds = map(int, parts)
             return hours * 3600 + minutes * 60 + seconds
         return 0
-    
-    def seconds_to_timestamp(self, seconds):
-        """Convert seconds back to MM:SS format"""
+
+    @staticmethod
+    def seconds_to_timestamp(seconds):
         hours = int(seconds // 3600)
         minutes = int((seconds % 3600) // 60)
         secs = int(seconds % 60)
         if hours > 0:
             return f"{hours:02d}:{minutes:02d}:{secs:02d}"
         return f"{minutes:02d}:{secs:02d}"
-    
+
     def parse_topic_file(self, topic_file_path):
-        """Parse the topic segmentation file"""
-        print(f"📄 Parsing topic file: {topic_file_path}")
-        
         try:
             with open(topic_file_path, 'r', encoding='utf-8') as f:
-                content = f.read().strip()
+                lines = [line.strip() for line in f if line.strip()]
         except Exception as e:
             print(f"❌ Error reading topic file: {e}")
             return False
-        
-        lines = content.split('\n')
         topics = []
-        
-        for line_num, line in enumerate(lines, 1):
-            line = line.strip()
-            if not line:
-                continue
-            
+        for line in lines:
             topic_name = None
             timestamp_part = None
-            
-            # Try format 1: "*Topic Name**: [timestamp]"
             if '**: [' in line and line.endswith(']'):
                 parts = line.split('**: [')
                 if len(parts) == 2:
-                    topic_name = parts[0].strip()
-                    if topic_name.startswith('*'):
-                        topic_name = topic_name[1:].strip()
+                    topic_name = parts[0].lstrip('*').strip()
                     timestamp_part = parts[1].rstrip(']')
-            
-            # Try format 2: "Topic Name : [timestamp]"
             elif ' : [' in line and line.endswith(']'):
                 parts = line.split(' : [')
                 if len(parts) == 2:
                     topic_name = parts[0].strip()
                     timestamp_part = parts[1].rstrip(']')
-            
-            if topic_name and timestamp_part:
-                if ' - ' in timestamp_part:
-                    start_time_str, end_time_str = timestamp_part.split(' - ')
-                    start_seconds = self.parse_timestamp(start_time_str.strip())
-                    end_seconds = self.parse_timestamp(end_time_str.strip())
-                    
+            elif '(' in line and line.endswith(')'):
+                match3 = re.match(r'(.+?)\s*\((\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\)', line)
+                if match3:
+                    topic_name = match3.group(1).strip()
+                    start_time = match3.group(2)
+                    end_time = match3.group(3)
+                    start_sec = self.parse_timestamp(start_time)
+                    end_sec = self.parse_timestamp(end_time)
                     topics.append({
                         'name': topic_name,
-                        'start_time': start_time_str.strip(),
-                        'end_time': end_time_str.strip(),
-                        'start_seconds': start_seconds,
-                        'end_seconds': end_seconds,
-                        'duration': end_seconds - start_seconds
+                        'start_time': start_time,
+                        'end_time': end_time,
+                        'start_seconds': start_sec,
+                        'end_seconds': end_sec,
+                        'duration': end_sec - start_sec
                     })
-                    
-                    print(f"  ✅ Topic {len(topics)}: {topic_name} ({start_time_str.strip()} - {end_time_str.strip()})")
-        
+                    continue
+            else:
+                timestamp_match = re.search(r'\[(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\]', line)
+                if timestamp_match:
+                    start_time = timestamp_match.group(1)
+                    end_time = timestamp_match.group(2)
+                    topic_name = line[:timestamp_match.start()].strip()
+                    topic_name = re.sub(r'[*:]+$', '', topic_name).strip()
+                    start_sec = self.parse_timestamp(start_time)
+                    end_sec = self.parse_timestamp(end_time)
+                    topics.append({
+                        'name': topic_name,
+                        'start_time': start_time,
+                        'end_time': end_time,
+                        'start_seconds': start_sec,
+                        'end_seconds': end_sec,
+                        'duration': end_sec - start_sec
+                    })
+                    continue
+            if topic_name and timestamp_part and ' - ' in timestamp_part:
+                start_str, end_str = [s.strip() for s in timestamp_part.split(' - ')]
+                start_sec = self.parse_timestamp(start_str)
+                end_sec = self.parse_timestamp(end_str)
+                topics.append({
+                    'name': topic_name,
+                    'start_time': start_str,
+                    'end_time': end_str,
+                    'start_seconds': start_sec,
+                    'end_seconds': end_sec,
+                    'duration': end_sec - start_sec
+                })
         if not topics:
             print("❌ No topics found in the file")
             return False
-        
         topics.sort(key=lambda x: x['start_seconds'])
         self.topics = topics
-        
-        print(f"✅ Successfully parsed {len(topics)} topics")
         return True
-    
+
     def copy_video_file(self, video_path):
-        """Copy video file to output directory"""
         if not os.path.exists(video_path):
             print(f"❌ Video file not found: {video_path}")
             return None
-        
         os.makedirs(self.output_dir, exist_ok=True)
-        
         _, ext = os.path.splitext(video_path)
         new_video_path = os.path.join(self.output_dir, f"video{ext}")
-        
-        print(f"📹 Copying video to output directory...")
         try:
             shutil.copy2(video_path, new_video_path)
-            print(f"✅ Video copied successfully")
         except Exception as e:
             print(f"❌ Error copying video: {e}")
             return None
-        
         self.video_path = f"video{ext}"
         return new_video_path
-    
+
     def generate_pdf_summary(self, topic_file_path, transcript_file_path, video_title):
-        """Generate PDF summary and return the filename"""
-        print(f"📄 Generating PDF summary...")
-        
         if not transcript_file_path or not os.path.exists(transcript_file_path):
-            print(f"⚠️ Transcript file not provided or doesn't exist: {transcript_file_path}")
             return None
-        
-        try:
-            # Generate PDF filename
-            safe_title = re.sub(r'[^\w\s-]', '', video_title)
-            safe_title = re.sub(r'[-\s]+', '_', safe_title)
-            pdf_filename = f"{safe_title}_summary.pdf"
-            pdf_path = os.path.join(self.output_dir, pdf_filename)
-            
-            # Generate PDF using the imported generator
-            result = self.pdf_generator.generate_pdf_summary(
-                topics_file=topic_file_path,
-                transcript_file=transcript_file_path,
-                output_path=pdf_path,
-                video_title=video_title
-            )
-            
-            if result:
-                print(f"✅ PDF summary generated: {pdf_filename}")
-                return pdf_filename
-            else:
-                print(f"❌ Failed to generate PDF summary")
-                return None
-                
-        except Exception as e:
-            print(f"❌ Error generating PDF: {e}")
-            return None
-    
+        safe_title = re.sub(r'[^\w\s-]', '', video_title)
+        safe_title = re.sub(r'[-\s]+', '_', safe_title)
+        pdf_filename = f"{safe_title}_summary.pdf"
+        pdf_path = os.path.join(self.output_dir, pdf_filename)
+        result = self.pdf_generator.generate_pdf_summary(
+            topics_file=topic_file_path,
+            transcript_file=transcript_file_path,
+            output_path=pdf_path,
+            video_title=video_title
+        )
+        return pdf_filename if result else None
+
     def generate_css(self):
-        """Generate CSS styles for compact side-by-side layout with PDF integration"""
         return """
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+body {
+    margin: 0; padding: 0;
+    font-family: 'Roboto', Arial, sans-serif;
+    background: #101010;
+    color: #fff;
+    height: 100vh; width: 100vw;
+    overflow: hidden;
+}
+#main-container {
+    display: flex;
+    flex-direction: row;
+    height: 100vh;
+    width: 100vw;
+}
+#player-section {
+    flex: 0 0 80vw;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: relative;
+}
+#contents-section {
+    flex: 0 0 20vw;
+    background: #181818;
+    border-left: 2px solid #292929;
+    overflow-y: auto;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+#player-video-box {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    min-height: 0;
+    height: 91vh;
+    max-height: 91vh;
+}
+#player-video-box video {
+    width: 100%;
+    height: 100%;
+    max-height: 91vh;
+    object-fit: contain;
+    background: #000;
+}
+#player-timeline-bar {
+    width: 96%;
+    height: 8px;
+    background: #333;
+    border-radius: 4px;
+    margin: 8px auto;
+    position: relative;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+#player-timeline-bar .timeline-bar {
+    position: absolute;
+    left: 0; top: 0; height: 100%; width: 100%;
+    pointer-events: none;
+    border-radius: 4px;
+}
+#player-timeline-bar .timeline-progress {
+    position: absolute;
+    left: 0; top: 0; height: 100%;
+    background: #448aff;
+    border-radius: 4px;
+    transition: width 0.1s ease;
+    z-index: 2;
+}
+#player-timeline-bar .timeline-segments {
+    position: absolute;
+    left: 0; top: 0; height: 100%; width: 100%;
+    z-index: 1;
+    pointer-events: none;
+}
+#player-timeline-bar .timeline-segment {
+    position: absolute;
+    top: 0; height: 100%;
+    background: rgba(80, 200, 255, 0.2);
+    z-index: 3;
+    pointer-events: auto;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    border-left: 1px solid rgba(255,255,255,0.1);
+}
+#player-timeline-bar .timeline-segment:first-child {
+    border-left: none;
+}
+#player-timeline-bar .timeline-segment.active {
+    background: rgba(80, 200, 255, 0.5);
+}
+#player-timeline-bar .timeline-segment:hover {
+    background: rgba(180, 220, 255, 0.4);
+}
+#timeline-hover-box {
+    position: absolute;
+    display: none;
+    background: rgba(20,20,20,0.95);
+    color: #fff;
+    padding: 8px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 100;
+    min-width: 140px;
+    max-width: 300px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    white-space: nowrap;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+#timeline-hover-box .topic-name {
+    font-weight: 600;
+    margin-bottom: 2px;
+    color: #fff;
+}
+#timeline-hover-box .topic-time {
+    color: #aaf;
+    font-size: 11px;
+}
+#player-info {
+    padding: 12px 16px;
+    background: #1a1a1a;
+    border-top: 1px solid #242424;
+    flex-shrink: 0;
+}
+#pdf-download {
+    margin-top: 8px;
+    text-align: left;
+}
+#pdf-download a {
+    display: inline-block;
+    background: linear-gradient(90deg,#3498db,#2c3e50);
+    color: #fff;
+    text-decoration: none;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-weight: 500;
+    font-size: 0.75rem;
+    transition: background 0.2s;
+}
+#pdf-download a:hover {
+    background: linear-gradient(90deg,#2c3e50,#3498db);
+}
+#video-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+#video-meta {
+    display: flex;
+    gap: 10px;
+    color: #bbbbbb;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+.meta-item {
+    background: #232323;
+    border-radius: 8px;
+    padding: 2px 8px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+#current-topic {
+    background: #181818;
+    border-left: 4px solid #3498db;
+    border-radius: 6px;
+    margin-top: 8px;
+    padding: 10px 12px;
+}
+#current-topic h4 {
+    margin: 0 0 5px 0;
+    color: #60a5fa;
+    font-size: 0.9rem;
+}
+#current-topic .topic-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #fff;
+}
+#contents-header {
+    padding: 16px 12px 8px 12px;
+    border-bottom: 1px solid #222;
+}
+#contents-header h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 3px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #fff;
+}
+#contents-header .subtitle {
+    font-size: 0.85rem;
+    color: #bbbbbb;
+}
+#toc-list {
+    padding: 12px;
+    flex: 1 1 auto;
+    overflow-y: auto;
+}
+.topic-item {
+    background: #222;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    padding: 10px 8px 8px 10px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: background 0.16s, border 0.16s, transform 0.16s;
+    position: relative;
+}
+.topic-item.active {
+    background: linear-gradient(90deg,#3498db, #173a51 80%);
+    color: #fff;
+    border: 2px solid #3498db;
+    transform: translateX(2px) scale(1.01);
+}
+.topic-item .topic-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.topic-item .topic-number {
+    background: #333;
+    color: #5ddcff;
+    font-size: 0.75em;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-weight: 700;
+    margin-right: 6px;
+    min-width: 24px;
+    text-align: center;
+}
+.topic-item.active .topic-number {
+    background: #fff;
+    color: #3498db;
+}
+.topic-item .topic-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #fff;
+    flex: 1;
+    margin-right: 4px;
+    line-height: 1.2;
+}
+.topic-item .topic-time {
+    font-family: monospace;
+    font-size: 0.8em;
+    color: #bbbbbb;
+    margin-top: 4px;
+}
+.topic-item .topic-duration {
+    background: #333;
+    color: #fff;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.7em;
+    margin-left: 5px;
+}
+@media (max-width: 1000px) {
+    #main-container {
+        flex-direction: column;
+    }
+    #player-section, #contents-section {
+        width: 100vw;
+        flex: none;
+    }
+    #player-section { height: 60vh; }
+    #contents-section { height: 40vh; }
+}
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: #242424; border-radius: 3px; }
+"""
 
-        body {
-            font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #0f0f0f;
-            color: #ffffff;
-            line-height: 1.6;
-            overflow-x: hidden;
-            height: 100vh;
-        }
-
-        .main-container {
-            display: flex;
-            height: 100vh;
-            width: 100%;
-            background: #0f0f0f;
-        }
-
-        /* Video Section - Left Side */
-        .video-section {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 16px;
-            background: #0f0f0f;
-            min-width: 0;
-            overflow-y: auto;
-        }
-
-        .video-container {
-            position: relative;
-            width: 100%;
-            background: #000;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-            margin-bottom: 12px;
-        }
-
-        .video-wrapper {
-            position: relative;
-            width: 100%;
-            aspect-ratio: 16/9;
-            background: #000;
-        }
-
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            cursor: pointer;
-            background: #000;
-        }
-
-        .custom-controls {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(transparent, rgba(0,0,0,0.9));
-            padding: 20px;
-            z-index: 10;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .video-container:hover .custom-controls {
-            opacity: 1;
-        }
-
-        .progress-container {
-            position: relative;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 4px;
-            margin-bottom: 16px;
-            cursor: pointer;
-        }
-
-        .progress-bar {
-            height: 100%;
-            background: #ff0000;
-            border-radius: 4px;
-            transition: width 0.1s ease;
-            z-index: 3;
-            position: relative;
-        }
-
-        .timeline-segments {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 5;
-        }
-
-        .timeline-segment {
-            position: absolute;
-            height: 100%;
-            border-right: 2px solid rgba(255, 255, 255, 0.4);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            z-index: 6;
-        }
-
-        .timeline-segment:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .timeline-segment.active {
-            background: rgba(255, 0, 0, 0.4);
-        }
-
-        .controls-row {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .play-btn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 28px;
-            cursor: pointer;
-            border-radius: 50%;
-            transition: all 0.3s ease;
-            width: 52px;
-            height: 52px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .play-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-            transform: scale(1.05);
-        }
-
-        .time-display {
-            color: white;
-            font-size: 15px;
-            font-family: 'Roboto Mono', monospace;
-            min-width: 120px;
-            font-weight: 500;
-        }
-
-        .volume-control {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .volume-btn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 22px;
-            cursor: pointer;
-            padding: 10px;
-            border-radius: 6px;
-            transition: all 0.3s ease;
-        }
-
-        .volume-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .fullscreen-btn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 22px;
-            cursor: pointer;
-            padding: 10px;
-            border-radius: 6px;
-            transition: all 0.3s ease;
-            margin-left: auto;
-        }
-
-        .fullscreen-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        /* Enhanced Video Info Section with PDF Download */
-        .video-info {
-            background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
-            padding: 16px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            flex-shrink: 0;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .video-title {
-            font-size: 1.4rem;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: #ffffff;
-            line-height: 1.2;
-        }
-
-        .video-meta {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #aaaaaa;
-            font-size: 12px;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-        }
-
-        .meta-item {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 4px 8px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            font-size: 11px;
-        }
-
-        /* PDF Download Section */
-        .pdf-download-section {
-            background: linear-gradient(135deg, #2a4a8a, #1e3a8a);
-            padding: 14px;
-            border-radius: 10px;
-            margin-top: 12px;
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
-        }
-
-        .pdf-download-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
-            color: #ffffff;
-            font-weight: 600;
-            font-size: 0.95rem;
-        }
-
-        .pdf-download-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-            color: white;
-            padding: 12px 18px;
-            border-radius: 10px;
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-            width: 100%;
-            justify-content: center;
-        }
-
-        .pdf-download-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
-            background: linear-gradient(135deg, #2563eb, #1e40af);
-        }
-
-        .pdf-info {
-            color: #b3d9ff;
-            font-size: 0.8rem;
-            margin-top: 8px;
-            line-height: 1.4;
-            text-align: center;
-        }
-
-        .pdf-unavailable {
-            background: linear-gradient(135deg, #7f1d1d, #991b1b);
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 12px;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: #fecaca;
-            font-size: 0.85rem;
-            text-align: center;
-        }
-
-        .current-topic-display {
-            background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
-            padding: 12px;
-            border-radius: 8px;
-            border-left: 3px solid #ff0000;
-            margin-top: 12px;
-        }
-
-        .current-topic-display h3 {
-            color: #ff0000;
-            font-size: 0.9rem;
-            margin-bottom: 6px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .current-topic-display p {
-            color: #cccccc;
-            margin: 3px 0;
-            font-size: 0.8rem;
-        }
-
-        .current-topic-title {
-            font-weight: 600;
-            font-size: 0.85rem;
-            color: #ffffff;
-        }
-
-        /* Table of Contents Section */
-        .toc-section {
-            width: 340px;
-            min-width: 340px;
-            max-width: 340px;
-            background: #181818;
-            border-left: 2px solid #303030;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-            flex-shrink: 0;
-        }
-
-        .toc-header {
-            padding: 16px;
-            border-bottom: 1px solid #303030;
-            background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
-            flex-shrink: 0;
-        }
-
-        .toc-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 4px;
-        }
-
-        .toc-subtitle {
-            color: #aaaaaa;
-            font-size: 0.8rem;
-        }
-
-        .topics-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 12px;
-        }
-
-        .topic-item {
-            background: #1f1f1f;
-            margin-bottom: 8px;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            border: 1px solid transparent;
-            position: relative;
-        }
-
-        .topic-item::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background: #ff0000;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .topic-item:hover {
-            background: #2a2a2a;
-            border-color: #404040;
-            transform: translateX(3px);
-        }
-
-        .topic-item:hover::before {
-            opacity: 1;
-        }
-
-        .topic-item.active {
-            background: linear-gradient(135deg, #ff0000, #cc0000);
-            border-color: #ff0000;
-            transform: translateX(4px);
-            box-shadow: 0 3px 15px rgba(255, 0, 0, 0.3);
-        }
-
-        .topic-item.active::before {
-            opacity: 1;
-            background: #ffffff;
-        }
-
-        .topic-content {
-            padding: 12px;
-        }
-
-        .topic-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 8px;
-            margin-bottom: 6px;
-        }
-
-        .topic-number {
-            background: rgba(255, 255, 255, 0.1);
-            color: #aaaaaa;
-            font-size: 10px;
-            padding: 3px 6px;
-            border-radius: 10px;
-            font-weight: 600;
-            min-width: 24px;
-            text-align: center;
-            flex-shrink: 0;
-        }
-
-        .topic-item.active .topic-number {
-            background: rgba(255, 255, 255, 0.2);
-            color: #ffffff;
-        }
-
-        .topic-name {
-            font-weight: 600;
-            color: #ffffff;
-            font-size: 0.85rem;
-            line-height: 1.3;
-            flex: 1;
-            word-wrap: break-word;
-        }
-
-        .topic-time-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.75rem;
-            color: #aaaaaa;
-            font-family: 'Roboto Mono', monospace;
-        }
-
-        .topic-item.active .topic-time-info {
-            color: #ffcccc;
-        }
-
-        .topic-duration {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px 5px;
-            border-radius: 8px;
-            font-size: 0.7rem;
-        }
-
-        .topic-item.active .topic-duration {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        /* Shortcuts Panel */
-        .shortcuts-panel {
-            padding: 12px;
-            background: #1a1a1a;
-            border-top: 1px solid #303030;
-            flex-shrink: 0;
-        }
-
-        .shortcuts-title {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #ffffff;
-            margin-bottom: 8px;
-            text-align: center;
-        }
-
-        .shortcuts-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px;
-            font-size: 0.7rem;
-            color: #aaaaaa;
-        }
-
-        .shortcut-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .shortcut-key {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-family: monospace;
-            font-size: 0.65rem;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 1000px) {
-            .main-container {
-                flex-direction: column;
-                height: auto;
-            }
-            
-            .toc-section {
-                width: 100%;
-                min-width: 100%;
-                max-width: 100%;
-                height: 400px;
-                border-left: none;
-                border-top: 2px solid #303030;
-            }
-
-            .video-section {
-                height: auto;
-            }
-        }
-
-        @media (max-width: 600px) {
-            .video-section {
-                padding: 10px;
-            }
-            
-            .video-title {
-                font-size: 1.2rem;
-            }
-            
-            .toc-section {
-                height: 350px;
-            }
-        }
-
-        /* Scrollbar Styling */
-        .topics-container::-webkit-scrollbar {
-            width: 5px;
-        }
-
-        .topics-container::-webkit-scrollbar-track {
-            background: #1a1a1a;
-        }
-
-        .topics-container::-webkit-scrollbar-thumb {
-            background: #404040;
-            border-radius: 3px;
-        }
-
-        .topics-container::-webkit-scrollbar-thumb:hover {
-            background: #505050;
-        }
-
-        /* Focus States */
-        .topic-item:focus,
-        .play-btn:focus,
-        .volume-btn:focus,
-        .fullscreen-btn:focus,
-        .pdf-download-btn:focus {
-            outline: 2px solid #ff0000;
-            outline-offset: 2px;
-        }
-        """
-    
     def generate_javascript(self):
-        """Generate JavaScript functionality"""
         topics_json = json.dumps(self.topics)
-        
         return f"""
-        class CompactSideBySideVideoPlayer {{
-            constructor() {{
-                this.video = document.getElementById('mainVideo');
-                this.topics = {topics_json};
-                this.currentTopicIndex = -1;
-                this.isPlaying = false;
-                this.isVideoReady = false;
-                
-                this.progressBar = document.querySelector('.progress-bar');
-                this.progressContainer = document.querySelector('.progress-container');
-                this.currentTopicDisplay = document.getElementById('currentTopicDisplay');
-                this.playBtn = document.getElementById('playBtn');
-                this.timeDisplay = document.getElementById('timeDisplay');
-                
-                this.init();
-            }}
-            
-            init() {{
-                this.attachEventListeners();
-                this.updateDisplay();
-                
-                console.log('🎬 Video Player with PDF Integration initialized');
-                console.log(`📊 Loaded ${{this.topics.length}} topics`);
-                
-                if (this.video.readyState >= 2) {{
-                    this.onVideoReady();
-                }}
-            }}
-            
-            onVideoReady() {{
-                this.isVideoReady = true;
-                this.createTimelineSegments();
-                this.updateDisplay();
-                console.log('✅ Video loaded successfully');
-            }}
-            
-            createTimelineSegments() {{
-                const segmentsContainer = document.querySelector('.timeline-segments');
-                segmentsContainer.innerHTML = '';
-                
-                const totalDuration = this.getTotalDuration();
-                
-                this.topics.forEach((topic, index) => {{
-                    const segment = document.createElement('div');
-                    segment.className = 'timeline-segment';
-                    segment.dataset.topicIndex = index;
-                    
-                    const startPercent = (topic.start_seconds / totalDuration) * 100;
-                    const endPercent = (topic.end_seconds / totalDuration) * 100;
-                    const widthPercent = endPercent - startPercent;
-                    
-                    segment.style.left = startPercent + '%';
-                    segment.style.width = widthPercent + '%';
-                    
-                    segment.addEventListener('click', (e) => {{
-                        e.stopPropagation();
-                        this.jumpToTopic(index);
-                    }});
-                    
-                    segmentsContainer.appendChild(segment);
-                }});
-                
-                console.log(`📊 Created ${{this.topics.length}} timeline segments`);
-            }}
-            
-            getTotalDuration() {{
-                if (this.video.duration && !isNaN(this.video.duration) && this.video.duration > 0) {{
-                    return this.video.duration;
-                }}
-                if (this.topics.length > 0) {{
-                    return Math.max(...this.topics.map(t => t.end_seconds));
-                }}
-                return 3600;
-            }}
-            
-            attachEventListeners() {{
-                this.video.addEventListener('loadeddata', () => {{
-                    this.onVideoReady();
-                }});
-                
-                this.video.addEventListener('loadedmetadata', () => {{
-                    this.onVideoReady();
-                }});
-                
-                this.video.addEventListener('canplay', () => {{
-                    this.onVideoReady();
-                }});
-                
-                this.video.addEventListener('timeupdate', () => {{
-                    if (this.isVideoReady) {{
-                        this.updateProgress();
-                        this.updateCurrentTopic();
-                    }}
-                }});
-                
-                this.video.addEventListener('play', () => {{
-                    this.isPlaying = true;
-                    this.updatePlayButton();
-                }});
-                
-                this.video.addEventListener('pause', () => {{
-                    this.isPlaying = false;
-                    this.updatePlayButton();
-                }});
-                
-                this.video.addEventListener('ended', () => {{
-                    this.isPlaying = false;
-                    this.updatePlayButton();
-                }});
-                
-                this.playBtn.addEventListener('click', () => {{
-                    this.togglePlayPause();
-                }});
-                
-                this.progressContainer.addEventListener('click', (e) => {{
-                    if (this.isVideoReady) {{
-                        this.seekToPosition(e);
-                    }}
-                }});
-                
-                document.querySelectorAll('.topic-item').forEach((item, index) => {{
-                    item.addEventListener('click', () => {{
-                        this.jumpToTopic(index);
-                    }});
-                }});
-                
-                document.addEventListener('keydown', (e) => {{
-                    this.handleKeyboard(e);
-                }});
-                
-                this.video.addEventListener('click', () => {{
-                    this.togglePlayPause();
-                }});
-            }}
-            
-            updateProgress() {{
-                const duration = this.getTotalDuration();
-                if (duration > 0) {{
-                    const progress = (this.video.currentTime / duration) * 100;
-                    this.progressBar.style.width = Math.min(progress, 100) + '%';
-                }}
-                
-                this.updateTimeDisplay();
-                this.updateActiveSegment();
-            }}
-            
-            updateTimeDisplay() {{
-                const current = this.formatTime(this.video.currentTime || 0);
-                const total = this.formatTime(this.getTotalDuration());
-                this.timeDisplay.textContent = `${{current}} / ${{total}}`;
-            }}
-            
-            updateActiveSegment() {{
-                const currentTime = this.video.currentTime || 0;
-                document.querySelectorAll('.timeline-segment').forEach((segment, index) => {{
-                    const topic = this.topics[index];
-                    const isActive = currentTime >= topic.start_seconds && currentTime <= topic.end_seconds;
-                    segment.classList.toggle('active', isActive);
-                }});
-            }}
-            
-            updateCurrentTopic() {{
-                const currentTime = this.video.currentTime || 0;
-                let newTopicIndex = -1;
-                
-                for (let i = 0; i < this.topics.length; i++) {{
-                    const topic = this.topics[i];
-                    if (currentTime >= topic.start_seconds && currentTime <= topic.end_seconds) {{
-                        newTopicIndex = i;
-                        break;
-                    }}
-                }}
-                
-                if (newTopicIndex !== this.currentTopicIndex) {{
-                    this.currentTopicIndex = newTopicIndex;
-                    this.highlightCurrentTopic();
-                    this.updateCurrentTopicDisplay();
-                }}
-            }}
-            
-            highlightCurrentTopic() {{
-                document.querySelectorAll('.topic-item').forEach((item, index) => {{
-                    item.classList.toggle('active', index === this.currentTopicIndex);
-                }});
-                
-                if (this.currentTopicIndex >= 0) {{
-                    const activeItem = document.querySelector(`[data-topic-index="${{this.currentTopicIndex}}"]`);
-                    if (activeItem && activeItem.classList.contains('topic-item')) {{
-                        activeItem.scrollIntoView({{ 
-                            behavior: 'smooth', 
-                            block: 'center' 
-                        }});
-                    }}
-                }}
-            }}
-            
-            updateCurrentTopicDisplay() {{
-                const display = this.currentTopicDisplay;
-                
-                if (this.currentTopicIndex >= 0) {{
-                    const topic = this.topics[this.currentTopicIndex];
-                    display.innerHTML = `
-                        <h3>🎯 Currently Playing</h3>
-                        <p class="current-topic-title">${{topic.name}}</p>
-                        <p>⏱️ ${{topic.start_time}} - ${{topic.end_time}} (${{this.formatTime(topic.duration)}})</p>
-                        <p>📍 Topic ${{this.currentTopicIndex + 1}} of ${{this.topics.length}}</p>
-                    `;
-                }} else {{
-                    display.innerHTML = `
-                        <h3>📺 Ready</h3>
-                        <p class="current-topic-title">Click any topic to jump</p>
-                        <p>⚡ Use keyboard shortcuts</p>
-                    `;
-                }}
-            }}
-            
-            updatePlayButton() {{
-                this.playBtn.innerHTML = this.isPlaying ? '⏸️' : '▶️';
-            }}
-            
-            jumpToTopic(topicIndex) {{
-                if (topicIndex >= 0 && topicIndex < this.topics.length) {{
-                    const topic = this.topics[topicIndex];
-                    this.video.currentTime = topic.start_seconds;
-                    
-                    if (this.video.paused) {{
-                        this.video.play().catch(e => {{
-                            console.log('Could not auto-play video:', e);
-                        }});
-                    }}
-                    
-                    console.log(`🎯 Jumped to: ${{topic.name}} at ${{topic.start_time}}`);
-                }}
-            }}
-            
-            jumpToPreviousTopic() {{
-                if (this.currentTopicIndex > 0) {{
-                    this.jumpToTopic(this.currentTopicIndex - 1);
-                }} else if (this.topics.length > 0) {{
-                    this.jumpToTopic(0);
-                }}
-            }}
-            
-            jumpToNextTopic() {{
-                if (this.currentTopicIndex < this.topics.length - 1) {{
-                    this.jumpToTopic(this.currentTopicIndex + 1);
-                }} else if (this.topics.length > 0) {{
-                    this.jumpToTopic(this.topics.length - 1);
-                }}
-            }}
-            
-            togglePlayPause() {{
-                if (this.video.paused) {{
-                    this.video.play().catch(e => {{
-                        console.log('Could not play video:', e);
-                    }});
-                }} else {{
-                    this.video.pause();
-                }}
-            }}
-            
-            seekToPosition(e) {{
-                const rect = this.progressContainer.getBoundingClientRect();
-                const pos = (e.clientX - rect.left) / rect.width;
-                const newTime = pos * this.getTotalDuration();
-                this.video.currentTime = Math.max(0, Math.min(newTime, this.getTotalDuration()));
-            }}
-            
-            handleKeyboard(e) {{
-                if (e.target.tagName.toLowerCase() === 'input') return;
-                
-                switch(e.key) {{
-                    case ' ':
-                        e.preventDefault();
-                        this.togglePlayPause();
-                        break;
-                    case 'ArrowRight':
-                        e.preventDefault();
-                        this.video.currentTime += 10;
-                        break;
-                    case 'ArrowLeft':
-                        e.preventDefault();
-                        this.video.currentTime -= 10;
-                        break;
-                    case 'ArrowUp':
-                        e.preventDefault();
-                        this.jumpToPreviousTopic();
-                        break;
-                    case 'ArrowDown':
-                        e.preventDefault();
-                        this.jumpToNextTopic();
-                        break;
-                    case 'f':
-                    case 'F':
-                        e.preventDefault();
-                        this.toggleFullscreen();
-                        break;
-                    default:
-                        if (e.key >= '0' && e.key <= '9') {{
-                            e.preventDefault();
-                            const percent = parseInt(e.key) * 10;
-                            this.video.currentTime = (this.getTotalDuration() * percent) / 100;
-                        }}
-                        break;
-                }}
-            }}
-            
-            toggleFullscreen() {{
-                if (!document.fullscreenElement) {{
-                    this.video.requestFullscreen().catch(err => {{
-                        console.log('Error entering fullscreen:', err);
-                    }});
-                }} else {{
-                    document.exitFullscreen();
-                }}
-            }}
-            
-            formatTime(seconds) {{
-                if (!seconds || isNaN(seconds)) return '00:00';
-                
-                const hrs = Math.floor(seconds / 3600);
-                const mins = Math.floor((seconds % 3600) / 60);
-                const secs = Math.floor(seconds % 60);
-                
-                if (hrs > 0) {{
-                    return `${{hrs}}:${{mins.toString().padStart(2, '0')}}:${{secs.toString().padStart(2, '0')}}`;
-                }}
-                return `${{mins.toString().padStart(2, '0')}}:${{secs.toString().padStart(2, '0')}}`;
-            }}
-            
-            updateDisplay() {{
-                this.updateTimeDisplay();
-                this.updatePlayButton();
-                this.updateCurrentTopicDisplay();
+(function() {{
+    const topics = {topics_json};
+    const video = document.getElementById('the-video');
+    
+    // Timeline bar logic
+    const timelineBar = document.getElementById('player-timeline-bar');
+    const progressBar = document.getElementById('timeline-progress');
+    const segmentsContainer = document.getElementById('timeline-segments');
+    const hoverBox = document.getElementById('timeline-hover-box');
+    let totalDuration = 0;
+
+    function getTotalDuration() {{
+        if (video.duration && !isNaN(video.duration) && video.duration > 0) {{
+            return video.duration;
+        }}
+        if (topics.length > 0) {{
+            return Math.max(...topics.map(t => t.end_seconds));
+        }}
+        return 3600;
+    }}
+
+    function createTimelineSegments() {{
+        segmentsContainer.innerHTML = '';
+        totalDuration = getTotalDuration();
+        topics.forEach((topic, idx) => {{
+            const startPercent = (topic.start_seconds / totalDuration) * 100;
+            const endPercent = (topic.end_seconds / totalDuration) * 100;
+            const widthPercent = endPercent - startPercent;
+            const seg = document.createElement('div');
+            seg.className = 'timeline-segment';
+            seg.style.left = startPercent + '%';
+            seg.style.width = widthPercent + '%';
+            seg.dataset.topicIndex = idx;
+            seg.addEventListener('mouseenter', (e) => {{
+                showHoverBox(e, idx);
+            }});
+            seg.addEventListener('mousemove', (e) => {{
+                showHoverBox(e, idx);
+            }});
+            seg.addEventListener('mouseleave', () => {{
+                hideHoverBox();
+            }});
+            seg.addEventListener('click', (e) => {{
+                e.stopPropagation();
+                jumpToTopic(idx);
+            }});
+            segmentsContainer.appendChild(seg);
+        }});
+    }}
+
+    function updateTimelineProgress() {{
+        if (!progressBar) return;
+        const duration = getTotalDuration();
+        if (duration > 0) {{
+            const percent = (video.currentTime / duration) * 100;
+            progressBar.style.width = Math.min(100, percent) + '%';
+        }}
+        const curr = video.currentTime;
+        segmentsContainer.querySelectorAll('.timeline-segment').forEach((seg, idx) => {{
+            const t = topics[idx];
+            seg.classList.toggle('active', curr >= t.start_seconds && curr < t.end_seconds);
+        }});
+    }}
+
+    function showHoverBox(e, idx) {{
+        if (!hoverBox) return;
+        const topic = topics[idx];
+        hoverBox.innerHTML = `<div class="topic-name">${{topic.name}}</div><div class="topic-time">${{topic.start_time}} - ${{topic.end_time}}</div>`;
+        hoverBox.style.display = 'block';
+        
+        const rect = timelineBar.getBoundingClientRect();
+        const boxRect = hoverBox.getBoundingClientRect();
+        let x = e.clientX - rect.left;
+        
+        // Center the box above the mouse position
+        let leftVal = x - (boxRect.width / 2);
+        
+        // Keep the box within the timeline bounds
+        if (leftVal < 0) leftVal = 5;
+        if (leftVal + boxRect.width > rect.width) leftVal = rect.width - boxRect.width - 5;
+        
+        hoverBox.style.left = leftVal + 'px';
+        hoverBox.style.top = '-45px';
+    }}
+
+    function hideHoverBox() {{
+        if (hoverBox) hoverBox.style.display = 'none';
+    }}
+
+    timelineBar.addEventListener('click', function(e) {{
+        const rect = timelineBar.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const percent = x / rect.width;
+        const duration = getTotalDuration();
+        video.currentTime = Math.max(0, Math.min(duration, percent * duration));
+    }});
+
+    timelineBar.addEventListener('mousemove', function(e) {{
+        const rect = timelineBar.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const percent = x / rect.width;
+        const duration = getTotalDuration();
+        const time = percent * duration;
+        
+        // Find the topic for the current hover position
+        let idx = -1;
+        for (let i = 0; i < topics.length; i++) {{
+            if (time >= topics[i].start_seconds && time <= topics[i].end_seconds) {{
+                idx = i;
+                break;
             }}
         }}
         
-        document.addEventListener('DOMContentLoaded', () => {{
-            new CompactSideBySideVideoPlayer();
+        if (idx >= 0) {{
+            showHoverBox(e, idx);
+        }} else {{
+            hideHoverBox();
+        }}
+    }});
+    
+    timelineBar.addEventListener('mouseleave', hideHoverBox);
+
+    video.addEventListener('timeupdate', updateTimelineProgress);
+    video.addEventListener('loadedmetadata', () => {{
+        totalDuration = getTotalDuration();
+        createTimelineSegments();
+        updateTimelineProgress();
+    }});
+    window.addEventListener('DOMContentLoaded', () => {{
+        createTimelineSegments();
+        updateTimelineProgress();
+    }});
+
+    function jumpToTopic(idx) {{
+        if (idx >= 0 && idx < topics.length) {{
+            video.currentTime = topics[idx].start_seconds;
+            video.play();
+        }}
+    }}
+
+    // Existing player logic
+    const tocList = document.getElementById('toc-list');
+    const currentTopicDiv = document.getElementById('current-topic');
+    let currentTopicIdx = -1;
+    function secondsToTimestamp(seconds) {{
+        seconds = Math.floor(seconds);
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        if (h > 0) return h+":" + String(m).padStart(2,'0') + ":" + String(s).padStart(2,'0');
+        return String(m).padStart(2,'0') + ":" + String(s).padStart(2,'0');
+    }}
+    function highlightTOC(idx) {{
+        const items = tocList.querySelectorAll('.topic-item');
+        items.forEach((item,i) => {{
+            if (i === idx) item.classList.add('active');
+            else item.classList.remove('active');
         }});
-        """
-    
+        if (idx >= 0) {{
+            items[idx].scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
+        }}
+    }}
+    function setCurrentTopic(idx) {{
+        currentTopicIdx = idx;
+        if (idx < 0) {{
+            currentTopicDiv.innerHTML = '<h4>Ready</h4><div class="topic-label">Click any topic to jump</div>';
+            highlightTOC(-1);
+        }} else {{
+            const t = topics[idx];
+            currentTopicDiv.innerHTML = `<h4>Now Playing</h4>
+                <div class="topic-label">${{t.name}}</div>
+                <div class="topic-time">${{t.start_time}} - ${{t.end_time}} &nbsp;|&nbsp; <span class="topic-duration">${{secondsToTimestamp(t.duration)}}</span></div>
+                <div style="font-size:0.9em;color:#99b;">Section ${{idx+1}} of ${{topics.length}}</div>`;
+            highlightTOC(idx);
+        }}
+    }}
+    function findTopicIdx(time) {{
+        for (let i=0;i<topics.length;i++) {{
+            if (time >= topics[i].start_seconds && time < topics[i].end_seconds)
+                return i;
+        }}
+        return -1;
+    }}
+    tocList.querySelectorAll('.topic-item').forEach((item, idx) => {{
+        item.addEventListener('click', () => {{
+            video.currentTime = topics[idx].start_seconds;
+            video.play();
+            setCurrentTopic(idx);
+        }});
+    }});
+    video.addEventListener('timeupdate', () => {{
+        const idx = findTopicIdx(video.currentTime);
+        if (idx !== currentTopicIdx)
+            setCurrentTopic(idx);
+    }});
+    video.addEventListener('loadedmetadata', () => {{
+        setCurrentTopic(findTopicIdx(video.currentTime));
+    }});
+    setCurrentTopic(-1);
+
+    document.addEventListener('keydown', (e) => {{
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.key === " " || e.key === "Spacebar") {{
+            e.preventDefault();
+            if (video.paused) video.play(); else video.pause();
+        }}
+        if (e.key === "ArrowRight") {{
+            video.currentTime = Math.min(video.duration, video.currentTime + 10);
+        }}
+        if (e.key === "ArrowLeft") {{
+            video.currentTime = Math.max(0, video.currentTime - 10);
+        }}
+        if (e.key === "ArrowUp") {{
+            e.preventDefault();
+            if (currentTopicIdx > 0)
+                video.currentTime = topics[currentTopicIdx-1].start_seconds;
+        }}
+        if (e.key === "ArrowDown") {{
+            e.preventDefault();
+            if (currentTopicIdx < topics.length-1 && currentTopicIdx >= 0)
+                video.currentTime = topics[currentTopicIdx+1].start_seconds;
+        }}
+        if (e.key === "f" || e.key === "F") {{
+            if (video.requestFullscreen) video.requestFullscreen();
+        }}
+    }});
+}})();
+"""
+
     def generate_html(self, video_title="Lecture Video", pdf_filename=None):
-        """Generate HTML with PDF download integration"""
+        toc_items = []
+        for i, t in enumerate(self.topics):
+            toc_items.append(f"""
+<div class="topic-item" tabindex="0">
+    <div class="topic-header">
+        <span class="topic-number">{i+1:02d}</span>
+        <span class="topic-name">{t['name']}</span>
+    </div>
+    <div class="topic-time">{t['start_time']} - {t['end_time']}
+        <span class="topic-duration">{self.seconds_to_timestamp(t['duration'])}</span>
+    </div>
+</div>
+""")
+        toc_html = "\n".join(toc_items)
+        n_topics = len(self.topics)
+        total_duration = self.seconds_to_timestamp(max((t['end_seconds'] for t in self.topics), default=0))
+        pdf_section = (f"""
+<div id="pdf-download">
+    <a href="{pdf_filename}" download="{pdf_filename}" target="_blank">📄 PDF Summary</a>
+</div>
+""" if pdf_filename else "")
         
-        # Generate topics HTML
-        topics_html = ""
-        for i, topic in enumerate(self.topics):
-            duration_str = self.seconds_to_timestamp(topic['duration'])
-            
-            topics_html += f"""
-            <div class="topic-item" data-topic-index="{i}" tabindex="0">
-                <div class="topic-content">
-                    <div class="topic-header">
-                        <span class="topic-number">{i+1:02d}</span>
-                        <div class="topic-name">{topic['name']}</div>
-                    </div>
-                    <div class="topic-time-info">
-                        <span>{topic['start_time']} - {topic['end_time']}</span>
-                        <span class="topic-duration">{duration_str}</span>
-                    </div>
-                </div>
+        timeline_html = f"""
+<div id="player-timeline-bar">
+    <div class="timeline-bar"></div>
+    <div class="timeline-progress" id="timeline-progress" style="width:0%"></div>
+    <div class="timeline-segments" id="timeline-segments"></div>
+    <div id="timeline-hover-box"></div>
+</div>
+"""
+        
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>{video_title}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" rel="stylesheet">
+    <style>
+{self.generate_css()}
+    </style>
+</head>
+<body>
+<div id="main-container">
+    <!-- Video Player Section (Left, 80%) -->
+    <div id="player-section">
+        <div id="player-video-box">
+            <video id="the-video" controls preload="metadata">
+                <source src="{self.video_path}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+        {timeline_html}
+        <div id="player-info">
+            <div id="video-title">{video_title}</div>
+            <div id="video-meta">
+                <div class="meta-item">📚 {n_topics} Topics</div>
+                <div class="meta-item">⏱️ {total_duration}</div>
+                <div class="meta-item">📅 {datetime.now().strftime('%b %d, %Y')}</div>
+                <div class="meta-item">🎬 Interactive</div>
             </div>
-            """
-        
-        # Calculate total duration
-        total_duration = max(topic['end_seconds'] for topic in self.topics) if self.topics else 0
-        duration_display = self.seconds_to_timestamp(total_duration)
-        
-        # Generate PDF download section
-        pdf_section = ""
-        if pdf_filename:
-            pdf_section = f"""
-            <div class="pdf-download-section">
-                <div class="pdf-download-header">
-                    <span>📄</span>
-                    <span>Comprehensive Summary</span>
-                </div>
-                <a href="{pdf_filename}" class="pdf-download-btn" download="{pdf_filename}" target="_blank">
-                    <span>📥</span>
-                    <span>Download PDF Summary</span>
-                </a>
-                <div class="pdf-info">
-                    Complete topic breakdown with explanations extracted from the lecture transcript
-                </div>
-            </div>
-            """
-        else:
-            pdf_section = """
-            <div class="pdf-unavailable">
-                <span>📄 PDF Summary not available</span><br>
-                <small>Transcript file required for PDF generation</small>
-            </div>
-            """
-        
-        html_content = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>{video_title} - Interactive Player</title>
-            <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-            <style>
-                {self.generate_css()}
-            </style>
-        </head>
-        <body>
-            <div class="main-container">
-                <!-- Left Side: Video Section -->
-                <div class="video-section">
-                    <div class="video-container">
-                        <div class="video-wrapper">
-                            <video id="mainVideo" preload="metadata" controls>
-                                <source src="{self.video_path}" type="video/mp4">
-                                <source src="{self.video_path}" type="video/webm">
-                                Your browser does not support the video tag.
-                            </video>
-                        </div>
-                        
-                        <div class="custom-controls">
-                            <div class="progress-container">
-                                <div class="timeline-segments"></div>
-                                <div class="progress-bar"></div>
-                            </div>
-                            
-                            <div class="controls-row">
-                                <button class="play-btn" id="playBtn" title="Play/Pause (Space)">▶️</button>
-                                <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
-                                
-                                <div class="volume-control">
-                                    <button class="volume-btn" title="Mute/Unmute">🔊</button>
-                                </div>
-                                
-                                <button class="fullscreen-btn" title="Fullscreen (F)" onclick="document.getElementById('mainVideo').requestFullscreen()">⛶</button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Enhanced Video Info with PDF Download -->
-                    <div class="video-info">
-                        <h1 class="video-title">{video_title}</h1>
-                        
-                        <div class="video-meta">
-                            <div class="meta-item">
-                                <span>📚</span>
-                                <span>{len(self.topics)} Topics</span>
-                            </div>
-                            <div class="meta-item">
-                                <span>⏱️</span>
-                                <span>{duration_display}</span>
-                            </div>
-                            <div class="meta-item">
-                                <span>📅</span>
-                                <span>{datetime.now().strftime('%b %d, %Y')}</span>
-                            </div>
-                            <div class="meta-item">
-                                <span>🤖</span>
-                                <span>AI Powered</span>
-                            </div>
-                            <div class="meta-item">
-                                <span>👤</span>
-                                <span>Atulk47</span>
-                            </div>
-                        </div>
-                        
-                        {pdf_section}
-                        
-                        <!-- Currently Playing -->
-                        <div class="current-topic-display" id="currentTopicDisplay">
-                            <h3>📺 Ready</h3>
-                            <p class="current-topic-title">Click any topic to jump</p>
-                            <p>⚡ Use keyboard shortcuts</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Right Side: Table of Contents -->
-                <div class="toc-section">
-                    <div class="toc-header">
-                        <h2 class="toc-title">
-                            <span>📋</span>
-                            <span>Contents</span>
-                        </h2>
-                        <p class="toc-subtitle">Click to jump to section</p>
-                    </div>
-                    
-                    <div class="topics-container">
-                        {topics_html}
-                    </div>
-                    
-                    <div class="shortcuts-panel">
-                        <div class="shortcuts-title">⌨️ Shortcuts</div>
-                        <div class="shortcuts-grid">
-                            <div class="shortcut-item">
-                                <span>Play/Pause</span>
-                                <span class="shortcut-key">Space</span>
-                            </div>
-                            <div class="shortcut-item">
-                                <span>±10s</span>
-                                <span class="shortcut-key">← →</span>
-                            </div>
-                            <div class="shortcut-item">
-                                <span>Prev/Next</span>
-                                <span class="shortcut-key">↑ ↓</span>
-                            </div>
-                            <div class="shortcut-item">
-                                <span>Fullscreen</span>
-                                <span class="shortcut-key">F</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <script>
-                {self.generate_javascript()}
-            </script>
-        </body>
-        </html>
-        """
-        
-        return html_content
-    
-    def create_timestamped_player_with_pdf(self, video_path, topic_file_path, transcript_file_path=None, 
-                                          output_name="video_player_with_pdf", video_title=None):
-        """Create the video player with integrated PDF download"""
-        print(f"🎬 CREATING VIDEO PLAYER WITH PDF INTEGRATION")
-        print(f"📅 Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print("="*60)
-        
+            <div id="current-topic"></div>
+            {pdf_section}
+        </div>
+    </div>
+    <!-- Table of Contents Section (Right, 20%) -->
+    <div id="contents-section">
+        <div id="contents-header">
+            <h2>📋 Contents</h2>
+            <div class="subtitle">Click to jump to section</div>
+        </div>
+        <div id="toc-list">
+            {toc_html}
+        </div>
+    </div>
+</div>
+<script>
+{self.generate_javascript()}
+</script>
+</body>
+</html>
+"""
+        return html
+
+    def create_player_with_pdf(self, video_path, topic_file_path, transcript_file_path=None,
+                              output_name="video_player_side_by_side", video_title=None):
         if not self.parse_topic_file(topic_file_path):
             return None
-        
         copied_video = self.copy_video_file(video_path)
         if not copied_video:
             return None
-        
         if not video_title:
-            video_title = f"Interactive Lecture Video - {len(self.topics)} Topics"
-        
-        # Generate PDF summary if transcript is provided
+            video_title = "Lecture Video"
         pdf_filename = None
         if transcript_file_path and os.path.exists(transcript_file_path):
-            print(f"📄 Transcript provided, generating PDF summary...")
             pdf_filename = self.generate_pdf_summary(topic_file_path, transcript_file_path, video_title)
-        else:
-            print(f"⚠️ No transcript file provided, skipping PDF generation")
-        
-        print(f"🌐 Generating enhanced HTML player...")
         html_content = self.generate_html(video_title, pdf_filename)
-        
         html_filename = f"{output_name}.html"
         html_path = os.path.join(self.output_dir, html_filename)
-        
         with open(html_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
-        
-        info_data = {
-            'video_file': self.video_path,
-            'topic_file': topic_file_path,
-            'transcript_file': transcript_file_path,
-            'pdf_file': pdf_filename,
-            'total_topics': len(self.topics),
-            'total_duration_seconds': max(topic['end_seconds'] for topic in self.topics),
-            'generated_date': datetime.now().isoformat(),
-            'generated_by': 'Atulk47',
-            'topics': self.topics,
-            'layout': 'compact-side-by-side-with-pdf',
-            'features': [
-                'Side-by-side layout',
-                'Integrated PDF download',
-                'Topic-based navigation',
-                'Interactive timeline',
-                'Keyboard shortcuts',
-                'Responsive design',
-                'AI-powered content extraction'
-            ]
-        }
-        
-        info_path = os.path.join(self.output_dir, f"{output_name}_info.json")
-        with open(info_path, 'w', encoding='utf-8') as f:
-            json.dump(info_data, f, indent=2)
-        
-        print(f"\n✅ VIDEO PLAYER WITH PDF INTEGRATION CREATED!")
-        print(f"📁 Output directory: {self.output_dir}")
-        print(f"🌐 HTML file: {html_path}")
-        print(f"📄 PDF file: {pdf_filename if pdf_filename else 'Not generated'}")
-        print(f"📋 Info file: {info_path}")
-        print(f"📹 Video file: {copied_video}")
-        print(f"📊 Topics processed: {len(self.topics)}")
-        
-        print(f"\n🎯 ENHANCED FEATURES:")
-        print(f"   ✅ PDF summary with content extraction")
-        print(f"   ✅ Integrated download button")
-        print(f"   ✅ Professional styling")
-        print(f"   ✅ User attribution (Atulk47)")
-        print(f"   ✅ Responsive design")
-        print(f"   ✅ All video player functionality preserved")
-        
-        print(f"\n📚 TOPICS OVERVIEW:")
-        for i, topic in enumerate(self.topics, 1):
-            print(f"  {i:2d}. {topic['name']} ({topic['start_time']} - {topic['end_time']})")
-        
         return {
             'html_path': html_path,
             'video_path': copied_video,
             'pdf_path': os.path.join(self.output_dir, pdf_filename) if pdf_filename else None,
-            'info_path': info_path,
             'output_dir': self.output_dir,
             'topics_count': len(self.topics)
         }
 
-
 def main():
-    """Main function"""
-    print("🎬 VIDEO PLAYER WITH PDF SUMMARY INTEGRATION")
-    print("📦 Creates video player with downloadable PDF summary")
-    print("="*60)
-    
-    video_path = input("Enter video file path: ").strip()
-    if not video_path:
-        video_path = "output_cleaned_vad_mod.mp4"
-    
+    print("🟦 SIDE-BY-SIDE VIDEO PLAYER (80/20 layout)")
+    video_path = input("Enter video file path: ").strip() or "output_cleaned_vad_mod.mp4"
     topic_file = input("Enter topic segmentation file path: ").strip()
     if not topic_file:
         import glob
-        topic_files = glob.glob("topic_segmentation_*.txt")
-        if topic_files:
-            topic_file = topic_files[0]
-            print(f"📄 Found topic file: {topic_file}")
-        else:
-            print("❌ No topic segmentation file found")
-            return
-    
+        files = glob.glob("topic_segmentation_*.txt")
+        topic_file = files[0] if files else None
     transcript_file = input("Enter transcript file path (optional, for PDF generation): ").strip()
     if transcript_file and not os.path.exists(transcript_file):
-        print(f"⚠️ Transcript file not found: {transcript_file}")
         transcript_file = None
-    
-    if not os.path.exists(video_path):
-        print(f"❌ Video file not found: {video_path}")
+    video_title = input("Enter video title (optional): ").strip() or "Lecture Video"
+    output_name = input("Enter output name (default: video_player_side_by_side): ").strip() or "video_player_side_by_side"
+    if not (os.path.exists(video_path) and os.path.exists(topic_file)):
+        print("❌ Required files not found.")
         return
-    
-    if not os.path.exists(topic_file):
-        print(f"❌ Topic file not found: {topic_file}")
-        return
-    
-    video_title = input("Enter video title (optional): ").strip()
-    if not video_title:
-        video_title = "Interactive Lecture Video"
-    
-    output_name = input("Enter output name (default: video_player_with_pdf): ").strip()
-    if not output_name:
-        output_name = "video_player_with_pdf"
-    
-    print(f"\n🚀 Creating video player with PDF integration...")
-    print(f"📹 Video: {video_path}")
-    print(f"📄 Topics: {topic_file}")
-    print(f"📝 Transcript: {transcript_file if transcript_file else 'Not provided'}")
-    print(f"🎯 Title: {video_title}")
-    print(f"📁 Output: {output_name}")
-    print("-" * 60)
-    
-    player_generator = CompactSideBySideTimestampedVideoPlayerWithPDF()
-    result = player_generator.create_timestamped_player_with_pdf(
+    player = SideBySideVideoPlayerWithPDF()
+    result = player.create_player_with_pdf(
         video_path=video_path,
         topic_file_path=topic_file,
         transcript_file_path=transcript_file,
         output_name=output_name,
         video_title=video_title
     )
-    
     if result:
-        print(f"\n✨ SUCCESS!")
-        print(f"🌐 Open this file in your browser:")
-        print(f"   {os.path.abspath(result['html_path'])}")
-        
+        print(f"\n✅ Player created: {os.path.abspath(result['html_path'])}")
         if result['pdf_path']:
-            print(f"📄 PDF summary available:")
-            print(f"   {os.path.abspath(result['pdf_path'])}")
-        
-        print(f"\n💡 FEATURES:")
-        print(f"   🎥 Interactive video player with timeline")
-        print(f"   📄 Downloadable PDF summary with content extraction")
-        print(f"   🎯 Topic-based navigation")
-        print(f"   ⌨️ Keyboard shortcuts (Space, ←→, ↑↓, F, 0-9)")
-        print(f"   📱 Responsive design")
-    else:
-        print(f"\n❌ Failed to create video player")
-
+            print(f"📄 PDF: {os.path.abspath(result['pdf_path'])}")
 
 if __name__ == "__main__":
     main()
