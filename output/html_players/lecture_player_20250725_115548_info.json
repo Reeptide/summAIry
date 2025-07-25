@@ -1,0 +1,84 @@
+{
+  "video_file": "video.mp4",
+  "topic_file": "output/topics\\balanced_topics_transcript_20250725_114744_20250725_115548.txt",
+  "total_topics": 9,
+  "total_duration_seconds": 2039,
+  "generated_date": "2025-07-25T11:55:48.917733",
+  "user": "niranjani1401",
+  "rag_enhanced": true,
+  "ai_generated_topics": true,
+  "topics": [
+    {
+      "name": "Morphological Processing and Image Denoising",
+      "start_time": "00:00",
+      "end_time": "08:04",
+      "start_seconds": 0,
+      "end_seconds": 484,
+      "duration": 484
+    },
+    {
+      "name": "Morphological Processing and Image Denoising",
+      "start_time": "00:00",
+      "end_time": "08:04",
+      "start_seconds": 0,
+      "end_seconds": 484,
+      "duration": 484
+    },
+    {
+      "name": "Homogeneity Criteria for Region Segmentation and Edge Detection Fundamentals",
+      "start_time": "08:05",
+      "end_time": "20:30",
+      "start_seconds": 485,
+      "end_seconds": 1230,
+      "duration": 745
+    },
+    {
+      "name": "Homogeneity Criteria for Region Segmentation",
+      "start_time": "08:05",
+      "end_time": "12:30",
+      "start_seconds": 485,
+      "end_seconds": 750,
+      "duration": 265
+    },
+    {
+      "name": "Edge Detection Fundamentals and Types of Edges",
+      "start_time": "12:31",
+      "end_time": "20:30",
+      "start_seconds": 751,
+      "end_seconds": 1230,
+      "duration": 479
+    },
+    {
+      "name": "Edges, Lines, and Points in Image Processing",
+      "start_time": "20:31",
+      "end_time": "27:00",
+      "start_seconds": 1231,
+      "end_seconds": 1620,
+      "duration": 389
+    },
+    {
+      "name": "Edges, Lines, and Points in Image Processing",
+      "start_time": "20:31",
+      "end_time": "27:00",
+      "start_seconds": 1231,
+      "end_seconds": 1620,
+      "duration": 389
+    },
+    {
+      "name": "Edge Detection using First and Second Order Differencing",
+      "start_time": "27:01",
+      "end_time": "33:59",
+      "start_seconds": 1621,
+      "end_seconds": 2039,
+      "duration": 418
+    },
+    {
+      "name": "Edge Detection using First and Second Order Differencing",
+      "start_time": "27:01",
+      "end_time": "33:59",
+      "start_seconds": 1621,
+      "end_seconds": 2039,
+      "duration": 418
+    }
+  ]
+}

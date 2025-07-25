@@ -1,0 +1,13 @@
+course:
+  name: "Morphological Image Processing"
+  abbreviation: "IPC"
+directories:
+  pdf_transcript: "../generated_notes_pdf_transcript"
+  transcript_only: "../generated_notes_transcript_only"
+file_patterns:
+  notes_pattern: "notes_*.md"
+  notes_regex: r"notes_\d+_(.*)\.md"
+output:
+  filename_prefix: "Morphology"
+topics_file: "../rag_analysis/topics.txt"
+base_directory: ".."

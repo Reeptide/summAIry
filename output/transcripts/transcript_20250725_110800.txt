@@ -1,0 +1,132 @@
+[00:00 - 00:02] They don't do that.
+[00:02 - 00:05] So we also we are working on this platform only.
+[00:05 - 00:09] We just have to put in the class number or something.
+[00:09 - 00:11] It then reflects here.
+[00:11 - 00:14] I didn't realize that you guys are not seeing the untagged videos.
+[00:14 - 00:18] Okay, I'll make sure this week whatever live videos are there will be tagged.
+[00:18 - 00:20] Live 1, 2, 3 will be updated.
+[00:20 - 00:23] 4 your TAs are still working on it.
+[00:23 - 00:24] Yeah, sure.
+[00:24 - 00:26] So can you open T, I mean you started right?
+[00:26 - 00:31] Okay, I'll send the link to you guys in today's summary email.
+[00:31 - 00:55] Aditya BS, Akshay, Amisha, Amrita, Amrit, Anirudh, Nihaya, Kisha, Aritros here, Arushi, Ashish, Lesha, Atul, Bhuvan, Darren, Divya, Greshma, Gunj, Jayant, Jeevana, Jishnu, Triveni, Kriti, Lahari, Shavani, Manas, Meeraja, Namita, Namrata is his name.
+[00:55 - 01:23] Neha, Nikita, Nishita, Omkar, Amit, Pradhan, Prajwal, Preeksha, Priyanshu, Pushkar, Ranjita, Rohit, Priyanka, Samuel, Shashank, Shashank.
+[01:23 - 01:28] Shashank C, Shashank Kote, Shashank S and Shashank Udyavar.
+[01:28 - 01:30] You are Udyavar right?
+[01:30 - 01:31] So Shashank S here.
+[01:31 - 01:36] Trijani, Sumesh, Kuparna, Suyog, Sirita is here.
+[01:36 - 01:46] Bhanu Prabhas, Tejas 5, Tanish, Tejas, Hari Prasad, Vishwas, Varun, Vedant, Vignesh, Vishal, yes Vignesh present.
+[01:46 - 01:49] Vishal, Vishnu, Vivek and Dhrutan.
+[01:49 - 01:50] Dhrutan yes.
+[01:50 - 01:51] Yes.
+[01:51 - 01:52] Yeah, yeah, yeah.
+[01:52 - 02:08] So with today's class you will have 72 or at the end of the day right please you should have 72 45 minutes slots worth attendance depending on however many you have missed you can calibrate.
+[02:08 - 02:09] Okay.
+[02:09 - 02:10] Shall we continue?
+[02:10 - 02:11] Sorry.
+[02:11 - 02:13] So you are going to get only 2 hours.
+[02:13 - 02:14] Yes.
+[02:14 - 02:15] Okay.
+[02:15 - 02:16] Okay.
+[02:16 - 02:17] Okay.
+[02:17 - 02:20] So shall we continue or do you guys want to do some review from the earlier unit?
+[02:20 - 02:23] What I really wanted to be done last Friday.
+[02:23 - 02:26] Some of you said do it this Friday and many of you disappeared.
+[02:26 - 02:27] Okay.
+[02:27 - 02:29] So we just do a quick review of unit 3.
+[02:29 - 02:30] Okay.
+[02:30 - 02:31] So here's what we're going to do.
+[02:31 - 02:34] I want you to prepare a cheat sheet.
+[02:34 - 02:36] Are you guys carrying any notebook?
+[02:36 - 02:37] Yes.
+[02:37 - 02:38] Okay.
+[02:38 - 02:39] So what you're going to do is the following.
+[02:39 - 02:42] There are 3 chapters here.
+[02:42 - 02:44] I will give you 15 minutes.
+[02:44 - 02:46] Is that enough to prepare a cheat sheet?
+[02:46 - 02:47] 5 minutes per chapter?
+[02:47 - 02:48] Yes.
+[02:48 - 02:49] No.
+[02:49 - 02:50] Just to help you with the cheat sheet.
+[02:50 - 02:51] I've been helping you with the cheat sheet every class.
+[02:51 - 02:52] So will you guys quickly prepare.
+[02:52 - 02:53] So what I want you to do is this is addressing your feedback.
+[02:53 - 02:54] Some of you said it was too much to study for ISA 1 because there was a lot of material
+[02:54 - 02:55] to cover.
+[02:55 - 02:56] So I was hoping that we're done with one unit and we're actually almost half done with the
+[02:56 - 02:57] last unit.
+[02:57 - 02:58] So I thought we'll quickly revise.
+[02:58 - 02:59] Revise in the sense you guys studied.
+[02:59 - 03:00] So I will give you 15 minutes.
+[03:00 - 03:01] Is that enough?
+[03:01 - 03:02] Yes.
+[03:02 - 03:03] Okay.
+[03:03 - 03:04] So I will give you 15 minutes.
+[03:04 - 03:05] Is that enough?
+[03:05 - 03:06] Yes.
+[03:06 - 03:07] Okay.
+[03:07 - 03:08] So I will give you 15 minutes.
+[03:08 - 03:09] Is that enough?
+[03:09 - 03:10] Yes.
+[03:10 - 03:11] Okay.
+[03:11 - 03:12] So I will give you 15 minutes.
+[03:12 - 03:13] Is that enough?
+[03:13 - 03:14] Yes.
+[03:14 - 03:21] Okay.
+[03:21 - 03:37] And then we will go through some of the previous year questions on these and see if you can
+[03:37 - 03:39] answer them your cheat sheet.
+[03:39 - 03:40] Okay.
+[03:40 - 03:48] If you guys want 10 minutes instead of 5 minutes per unit, we can do that.
+[03:48 - 03:56] Do you need 10 minutes or okay 10 for morphological, 10 for segmentation, 5 for color image processing.
+[03:56 - 04:02] Whatever you think is important, quickly revise, put it down in a place and we will see if
+[04:02 - 04:06] you can answer a small test which your TA's refuse to give.
+[04:06 - 04:12] So you guys have the advantage of preparing and taking a test and therefore being a little
+[04:12 - 04:15] more prepared for ISA too for this unit.
+[04:15 - 04:16] Is this okay?
+[04:16 - 04:18] You have access to the text online.
+[04:18 - 04:19] Experienced?
+[04:19 - 04:20] Yes?
+[04:20 - 04:21] Yeah, that's enough.
+[04:21 - 04:24] So please use the textbook, forget about slides.
+[04:24 - 04:29] I want you to use the textbook only like we are doing in class, right?
+[04:29 - 04:33] You can scroll through, look at the bookmarks, what are the important topics, what are the
+[04:33 - 04:39] formulae you need to know here, what are the concepts, just put those down really quickly.
+[04:39 - 04:40] Yeah, exactly.
+[04:40 - 04:42] Oh, you already have that?
+[04:42 - 04:43] Yes.
+[04:43 - 04:44] Sorry?
+[04:44 - 04:45] You need to know.
+[04:45 - 04:46] Oh, that hasn't been sent.
+[04:46 - 04:47] Okay, let me just do that.
+[04:47 - 04:48] That's a good idea.
+[04:48 - 04:49] Has it been sent for Unisri?
+[04:49 - 04:50] No, right?
+[04:50 - 04:51] Okay, I'll do that homework.
+[04:51 - 04:52] I'm running the timer for 20 minutes.
+[04:52 - 04:53] If you need another 3-4 minutes, we can extend.
+[04:53 - 04:54] Otherwise, we are not going to have enough time to give you any test or ask any questions.
+[04:54 - 05:12] Right?
+[05:12 - 05:15] Transitions may not be the same across subjects.
+[05:15 - 05:20] You don't need all the data exactly.
+[05:20 - 05:24] Even if you have just a portion around the transition,
+[05:24 - 05:28] you need to kind of show whatever.
+[05:28 - 05:32] Yeah, because you'll realize, you're segmenting it out.
+[05:32 - 05:36] And once you're happy, ideally, yeah,
+[05:36 - 05:38] then you'll need to send one DNA
+[05:38 - 05:41] if you're only training for transitions.
+[05:41 - 05:44] If you can train for the space as well,
+[05:44 - 05:46] that would be great.
+[05:46 - 05:48] A few examples of what N1 is.
+[05:48 - 05:52] Equally many of N2, N3, I guess,
+[05:52 - 05:54] REM and the waking, right?
+[05:54 - 05:56] Those are the five.
+[05:56 - 05:58] So if you can have equally many,
+[05:58 - 06:00] so it's not bad.
+[06:00 - 06:02] You can have several sentences,
+[06:02 - 06:04] so you can show what this is.
+[06:04 - 06:06] And make sure that the transition,
+[06:06 - 06:10] there should be people who know from N1 to REM
+[06:10 - 06:12] and you can have people who don't.
+[06:12 - 06:15] So, yeah, that's it.
+[06:15 - 06:17] Thank you.
+[06:17 - 06:42] .

@@ -1,0 +1,12 @@
+# RAG-Generated Balanced Topics for Video Navigation
+# Generated: 2025-07-25 11:30:09
+# User: niranjani1401
+# Total Topics: 5
+# Format: Topic Name [MM:SS-MM:SS]
+# Pipeline: Video → Speech → Transcript → RAG → GUI
+
+Introduction and Platform Setup [00:00-01:52]
+Attendance and Class Overview, Review of Unit 3 [01:52-04:06]
+Cheat Sheet Preparation and Using Textbook for Revision [04:06-07:18]
+Test Preparation, Transitions in Image Segmentation [07:18-10:29]
+Training Data and Additional Considerations [10:29-13:41]

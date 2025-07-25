@@ -1,0 +1,711 @@
+
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Image Processing - RAG-Enhanced Player</title>
+            <style>
+                
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f0f0f;
+            color: #ffffff;
+            line-height: 1.6;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .video-section {
+            flex: 2;
+            padding: 20px;
+            background-color: #0f0f0f;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+            background-color: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        video {
+            width: 100%;
+            height: auto;
+            display: block;
+            max-height: 70vh;
+        }
+
+        .video-info {
+            padding: 20px;
+            background-color: #181818;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .video-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+
+        .video-stats {
+            display: flex;
+            gap: 20px;
+            color: #aaaaaa;
+            font-size: 0.9rem;
+            flex-wrap: wrap;
+        }
+
+        .current-topic {
+            background-color: #1f1f1f;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #ff0000;
+        }
+
+        .current-topic h3 {
+            color: #ff0000;
+            font-size: 1rem;
+            margin-bottom: 5px;
+        }
+
+        .current-topic p {
+            color: #cccccc;
+            font-size: 0.9rem;
+        }
+
+        .sidebar {
+            flex: 1;
+            background-color: #181818;
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 1px solid #303030;
+            min-width: 350px;
+        }
+
+        .sidebar h2 {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            color: #ffffff;
+            text-align: center;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #303030;
+        }
+
+        .topics-list {
+            list-style: none;
+        }
+
+        .topic-item {
+            background-color: #1f1f1f;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+            overflow: hidden;
+        }
+
+        .topic-item:hover {
+            background-color: #2a2a2a;
+            border-color: #404040;
+            transform: translateX(5px);
+        }
+
+        .topic-item.active {
+            background-color: #ff0000;
+            border-color: #ff0000;
+            transform: translateX(8px);
+            box-shadow: 0 4px 12px rgba(255, 0, 0, 0.3);
+        }
+
+        .topic-content {
+            padding: 15px;
+        }
+
+        .topic-name {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #ffffff;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .topic-item.active .topic-name {
+            color: #ffffff;
+        }
+
+        .topic-time {
+            color: #aaaaaa;
+            font-size: 0.85rem;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .topic-item.active .topic-time {
+            color: #ffcccc;
+        }
+
+        .topic-duration {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+        }
+
+        .topic-item.active .topic-duration {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .progress-bar-container {
+            position: relative;
+            height: 6px;
+            background-color: #404040;
+            margin: 15px 0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background-color: #ff0000;
+            border-radius: 3px;
+            transition: width 0.1s ease;
+        }
+
+        .topic-markers {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        .topic-marker {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: #ffffff;
+            opacity: 0.7;
+        }
+
+        .controls-info {
+            text-align: center;
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #1a1a1a;
+            border-radius: 8px;
+        }
+
+        .rag-badge {
+            background: linear-gradient(135deg, #ff0000, #ff4444);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .video-section {
+                flex: none;
+            }
+            
+            .sidebar {
+                flex: none;
+                border-left: none;
+                border-top: 1px solid #303030;
+                min-width: auto;
+                max-height: 400px;
+            }
+            
+            video {
+                max-height: 50vh;
+            }
+            
+            .video-stats {
+                gap: 10px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .video-section, .sidebar {
+                padding: 15px;
+            }
+            
+            .video-title {
+                font-size: 1.4rem;
+            }
+            
+            .sidebar {
+                min-width: auto;
+            }
+        }
+
+        /* Scrollbar Styling */
+        .sidebar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #404040;
+            border-radius: 4px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: #505050;
+        }
+        
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="video-section">
+                    <div class="video-container">
+                        <video id="mainVideo" controls preload="metadata">
+                            <source src="video.mp4" type="video/mp4">
+                            <source src="video.mp4" type="video/webm">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                    
+                    <div class="video-info">
+                        <h1 class="video-title">🧠 Image Processing</h1>
+                        <div class="video-stats">
+                            <span>📊 9 RAG Topics</span>
+                            <span>⏱️ Duration: 33m</span>
+                            <span>📅 Generated: 2025-07-25</span>
+                            <span>👤 User: niranjani1401</span>
+                            <span>🤖 AI-Powered</span>
+                        </div>
+                        
+                        <div class="progress-bar-container">
+                            <div class="progress-bar"></div>
+                            <div class="topic-markers"></div>
+                        </div>
+                        
+                        <div class="current-topic" id="currentTopic">
+                            <h3>📺 RAG-Enhanced Video Player</h3>
+                            <p>🧠 AI-generated topics from lecture analysis</p>
+                            <p>Click on any topic to jump to that section</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="sidebar">
+                    <h2>🧠 RAG Topics Timeline</h2>
+                    <ul class="topics-list">
+                        
+            <li class="topic-item" data-topic-index="0">
+                <div class="topic-content">
+                    <div class="topic-name">
+                        Morphological Processing and Image Denoising
+                        <span class="rag-badge">RAG</span>
+                    </div>
+                    <div class="topic-time">
+                        <span>00:00 - 08:04</span>
+                        <span class="topic-duration">8m 4s</span>
+                    </div>
+                </div>
+            </li>
+            
+            <li class="topic-item" data-topic-index="1">
+                <div class="topic-content">
+                    <div class="topic-name">
+                        Morphological Processing and Image Denoising
+                        <span class="rag-badge">RAG</span>
+                    </div>
+                    <div class="topic-time">
+                        <span>00:00 - 08:04</span>
+                        <span class="topic-duration">8m 4s</span>
+                    </div>
+                </div>
+            </li>
+            
+            <li class="topic-item" data-topic-index="2">
+                <div class="topic-content">
+                    <div class="topic-name">
+                        Homogeneity Criteria for Region Segmentation and Edge Detection Fundamentals
+                        <span class="rag-badge">RAG</span>
+                    </div>
+                    <div class="topic-time">
+                        <span>08:05 - 20:30</span>
+                        <span class="topic-duration">12m 25s</span>
+                    </div>
+                </div>
+            </li>
+            
+            <li class="topic-item" data-topic-index="3">
+                <div class="topic-content">
+                    <div class="topic-name">
+                        Homogeneity Criteria for Region Segmentation
+                        <span class="rag-badge">RAG</span>
+                    </div>
+                    <div class="topic-time">
+                        <span>08:05 - 12:30</span>
+                        <span class="topic-duration">4m 25s</span>
+                    </div>
+                </div>
+            </li>
+            
+            <li class="topic-item" data-topic-index="4">
+                <div class="topic-content">
+                    <div class="topic-name">
+                        Edge Detection Fundamentals and Types of Edges
+                        <span class="rag-badge">RAG</span>
+                    </div>
+                    <div class="topic-time">
+                        <span>12:31 - 20:30</span>
+                        <span class="topic-duration">7m 59s</span>
+                    </div>
+                </div>
+            </li>
+            
+            <li class="topic-item" data-topic-index="5">
+                <div class="topic-content">
+                    <div class="topic-name">
+                        Edges, Lines, and Points in Image Processing
+                        <span class="rag-badge">RAG</span>
+                    </div>
+                    <div class="topic-time">
+                        <span>20:31 - 27:00</span>
+                        <span class="topic-duration">6m 29s</span>
+                    </div>
+                </div>
+            </li>
+            
+            <li class="topic-item" data-topic-index="6">
+                <div class="topic-content">
+                    <div class="topic-name">
+                        Edges, Lines, and Points in Image Processing
+                        <span class="rag-badge">RAG</span>
+                    </div>
+                    <div class="topic-time">
+                        <span>20:31 - 27:00</span>
+                        <span class="topic-duration">6m 29s</span>
+                    </div>
+                </div>
+            </li>
+            
+            <li class="topic-item" data-topic-index="7">
+                <div class="topic-content">
+                    <div class="topic-name">
+                        Edge Detection using First and Second Order Differencing
+                        <span class="rag-badge">RAG</span>
+                    </div>
+                    <div class="topic-time">
+                        <span>27:01 - 33:59</span>
+                        <span class="topic-duration">6m 58s</span>
+                    </div>
+                </div>
+            </li>
+            
+            <li class="topic-item" data-topic-index="8">
+                <div class="topic-content">
+                    <div class="topic-name">
+                        Edge Detection using First and Second Order Differencing
+                        <span class="rag-badge">RAG</span>
+                    </div>
+                    <div class="topic-time">
+                        <span>27:01 - 33:59</span>
+                        <span class="topic-duration">6m 58s</span>
+                    </div>
+                </div>
+            </li>
+            
+                    </ul>
+                    
+                    <div class="controls-info">
+                        <strong>⌨️ Keyboard Shortcuts</strong><br>
+                        Space: Play/Pause<br>
+                        ← →: Skip 10s<br>
+                        ↑ ↓: Previous/Next Topic<br>
+                        0-9: Jump to 0%-90%<br><br>
+                        <strong>🧠 RAG-Enhanced Features</strong><br>
+                        AI-generated topic segmentation<br>
+                        Intelligent content analysis<br>
+                        Optimized for learning navigation
+                    </div>
+                </div>
+            </div>
+            
+            <script>
+                
+        class TimestampedVideoPlayer {
+            constructor() {
+                this.video = document.getElementById('mainVideo');
+                this.topics = [{"name": "Morphological Processing and Image Denoising", "start_time": "00:00", "end_time": "08:04", "start_seconds": 0, "end_seconds": 484, "duration": 484}, {"name": "Morphological Processing and Image Denoising", "start_time": "00:00", "end_time": "08:04", "start_seconds": 0, "end_seconds": 484, "duration": 484}, {"name": "Homogeneity Criteria for Region Segmentation and Edge Detection Fundamentals", "start_time": "08:05", "end_time": "20:30", "start_seconds": 485, "end_seconds": 1230, "duration": 745}, {"name": "Homogeneity Criteria for Region Segmentation", "start_time": "08:05", "end_time": "12:30", "start_seconds": 485, "end_seconds": 750, "duration": 265}, {"name": "Edge Detection Fundamentals and Types of Edges", "start_time": "12:31", "end_time": "20:30", "start_seconds": 751, "end_seconds": 1230, "duration": 479}, {"name": "Edges, Lines, and Points in Image Processing", "start_time": "20:31", "end_time": "27:00", "start_seconds": 1231, "end_seconds": 1620, "duration": 389}, {"name": "Edges, Lines, and Points in Image Processing", "start_time": "20:31", "end_time": "27:00", "start_seconds": 1231, "end_seconds": 1620, "duration": 389}, {"name": "Edge Detection using First and Second Order Differencing", "start_time": "27:01", "end_time": "33:59", "start_seconds": 1621, "end_seconds": 2039, "duration": 418}, {"name": "Edge Detection using First and Second Order Differencing", "start_time": "27:01", "end_time": "33:59", "start_seconds": 1621, "end_seconds": 2039, "duration": 418}];
+                this.currentTopicIndex = -1;
+                this.progressBar = document.querySelector('.progress-bar');
+                this.currentTopicDisplay = document.getElementById('currentTopic');
+                
+                this.init();
+            }
+            
+            init() {
+                this.createTopicMarkers();
+                this.attachEventListeners();
+                this.updateCurrentTopic();
+                
+                console.log('🎬 RAG-Enhanced Video Player initialized');
+                console.log(`📊 Loaded ${this.topics.length} RAG-generated topics`);
+            }
+            
+            createTopicMarkers() {
+                const markersContainer = document.querySelector('.topic-markers');
+                const videoDuration = this.video.duration || this.getEstimatedDuration();
+                
+                this.topics.forEach((topic, index) => {
+                    const marker = document.createElement('div');
+                    marker.className = 'topic-marker';
+                    const position = (topic.start_seconds / videoDuration) * 100;
+                    marker.style.left = position + '%';
+                    marker.title = topic.name;
+                    markersContainer.appendChild(marker);
+                });
+            }
+            
+            getEstimatedDuration() {
+                // Estimate duration from last topic if video duration not available
+                if (this.topics.length > 0) {
+                    return this.topics[this.topics.length - 1].end_seconds;
+                }
+                return 3600; // 1 hour default
+            }
+            
+            attachEventListeners() {
+                // Video time update
+                this.video.addEventListener('timeupdate', () => {
+                    this.updateCurrentTopic();
+                    this.updateProgressBar();
+                });
+                
+                // Video loaded metadata (for accurate duration)
+                this.video.addEventListener('loadedmetadata', () => {
+                    this.createTopicMarkers();
+                    console.log(`🎥 Video loaded: ${this.formatTime(this.video.duration)} duration`);
+                });
+                
+                // Topic click handlers
+                document.querySelectorAll('.topic-item').forEach((item, index) => {
+                    item.addEventListener('click', () => {
+                        this.jumpToTopic(index);
+                    });
+                });
+                
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    this.handleKeyboard(e);
+                });
+                
+                // Space bar for play/pause
+                document.addEventListener('keydown', (e) => {
+                    if (e.code === 'Space' && e.target === document.body) {
+                        e.preventDefault();
+                        this.togglePlayPause();
+                    }
+                });
+            }
+            
+            updateCurrentTopic() {
+                const currentTime = this.video.currentTime;
+                let newTopicIndex = -1;
+                
+                // Find current topic
+                for (let i = 0; i < this.topics.length; i++) {
+                    const topic = this.topics[i];
+                    if (currentTime >= topic.start_seconds && currentTime <= topic.end_seconds) {
+                        newTopicIndex = i;
+                        break;
+                    }
+                }
+                
+                // Update if topic changed
+                if (newTopicIndex !== this.currentTopicIndex) {
+                    this.currentTopicIndex = newTopicIndex;
+                    this.highlightCurrentTopic();
+                    this.updateCurrentTopicDisplay();
+                }
+            }
+            
+            highlightCurrentTopic() {
+                // Remove previous active class
+                document.querySelectorAll('.topic-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                
+                // Add active class to current topic
+                if (this.currentTopicIndex >= 0) {
+                    const activeItem = document.querySelector(`[data-topic-index="${this.currentTopicIndex}"]`);
+                    if (activeItem) {
+                        activeItem.classList.add('active');
+                        // Scroll to active topic
+                        activeItem.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center' 
+                        });
+                    }
+                }
+            }
+            
+            updateCurrentTopicDisplay() {
+                const display = this.currentTopicDisplay;
+                
+                if (this.currentTopicIndex >= 0) {
+                    const topic = this.topics[this.currentTopicIndex];
+                    const progress = Math.round(((this.video.currentTime - topic.start_seconds) / (topic.end_seconds - topic.start_seconds)) * 100);
+                    
+                    display.innerHTML = `
+                        <h3>🎯 Currently Playing</h3>
+                        <p><strong>${topic.name}</strong></p>
+                        <p>${topic.start_time} - ${topic.end_time} (Topic ${this.currentTopicIndex + 1} of ${this.topics.length})</p>
+                        <p>📊 Progress: ${Math.max(0, Math.min(100, progress))}%</p>
+                    `;
+                    display.style.display = 'block';
+                } else {
+                    display.innerHTML = `
+                        <h3>📺 RAG-Enhanced Video Player</h3>
+                        <p>🧠 AI-generated topics from lecture analysis</p>
+                        <p>Click on any topic to jump to that section</p>
+                    `;
+                }
+            }
+            
+            updateProgressBar() {
+                const duration = this.video.duration || this.getEstimatedDuration();
+                const progress = (this.video.currentTime / duration) * 100;
+                this.progressBar.style.width = progress + '%';
+            }
+            
+            jumpToTopic(topicIndex) {
+                if (topicIndex >= 0 && topicIndex < this.topics.length) {
+                    const topic = this.topics[topicIndex];
+                    this.video.currentTime = topic.start_seconds;
+                    
+                    // Play video if it's paused
+                    if (this.video.paused) {
+                        this.video.play().catch(e => {
+                            console.log('Could not auto-play video:', e);
+                        });
+                    }
+                    
+                    console.log(`🎯 Jumped to RAG topic: ${topic.name} at ${topic.start_time}`);
+                }
+            }
+            
+            togglePlayPause() {
+                if (this.video.paused) {
+                    this.video.play();
+                } else {
+                    this.video.pause();
+                }
+            }
+            
+            handleKeyboard(e) {
+                // Only handle if not in an input field
+                if (e.target.tagName.toLowerCase() === 'input') return;
+                
+                switch(e.key) {
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        this.video.currentTime += 10; // Skip forward 10s
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        this.video.currentTime -= 10; // Skip backward 10s
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        this.jumpToPreviousTopic();
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        this.jumpToNextTopic();
+                        break;
+                    case '0':
+                    case '1':
+                    case '2':
+                    case '3':
+                    case '4':
+                    case '5':
+                    case '6':
+                    case '7':
+                    case '8':
+                    case '9':
+                        e.preventDefault();
+                        const percent = parseInt(e.key) * 10;
+                        this.video.currentTime = (this.video.duration * percent) / 100;
+                        break;
+                }
+            }
+            
+            jumpToPreviousTopic() {
+                if (this.currentTopicIndex > 0) {
+                    this.jumpToTopic(this.currentTopicIndex - 1);
+                } else if (this.topics.length > 0) {
+                    this.jumpToTopic(0);
+                }
+            }
+            
+            jumpToNextTopic() {
+                if (this.currentTopicIndex < this.topics.length - 1) {
+                    this.jumpToTopic(this.currentTopicIndex + 1);
+                } else if (this.topics.length > 0) {
+                    this.jumpToTopic(this.topics.length - 1);
+                }
+            }
+            
+            formatTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+        }
+        
+        // Initialize RAG-enhanced player when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🧠 Initializing RAG-Enhanced Video Player...');
+            new TimestampedVideoPlayer();
+        });
+        
+            </script>
+        </body>
+        </html>
+        

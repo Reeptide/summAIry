@@ -1,0 +1,52 @@
+{
+  "video_file": "video.mp4",
+  "topic_file": "output/topics\\balanced_topics_transcript_20250725_110800_20250725_113009.txt",
+  "total_topics": 5,
+  "total_duration_seconds": 821,
+  "generated_date": "2025-07-25T11:30:09.309551",
+  "user": "niranjani1401",
+  "rag_enhanced": true,
+  "ai_generated_topics": true,
+  "topics": [
+    {
+      "name": "Introduction and Platform Setup",
+      "start_time": "00:00",
+      "end_time": "01:52",
+      "start_seconds": 0,
+      "end_seconds": 112,
+      "duration": 112
+    },
+    {
+      "name": "Attendance and Class Overview, Review of Unit 3",
+      "start_time": "01:52",
+      "end_time": "04:06",
+      "start_seconds": 112,
+      "end_seconds": 246,
+      "duration": 134
+    },
+    {
+      "name": "Cheat Sheet Preparation and Using Textbook for Revision",
+      "start_time": "04:06",
+      "end_time": "07:18",
+      "start_seconds": 246,
+      "end_seconds": 438,
+      "duration": 192
+    },
+    {
+      "name": "Test Preparation, Transitions in Image Segmentation",
+      "start_time": "07:18",
+      "end_time": "10:29",
+      "start_seconds": 438,
+      "end_seconds": 629,
+      "duration": 191
+    },
+    {
+      "name": "Training Data and Additional Considerations",
+      "start_time": "10:29",
+      "end_time": "13:41",
+      "start_seconds": 629,
+      "end_seconds": 821,
+      "duration": 192
+    }
+  ]
+}

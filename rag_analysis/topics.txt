@@ -1,0 +1,4 @@
+Morphological Processing and Image Denoising [00:00-08:04]
+Segmentation Overview and Region Properties [08:05-16:01]
+Edge Detection, Line Segmentation, and Region Properties [16:02-25:03]
+Point Detection and Second-Order Differences [25:04-31:10]

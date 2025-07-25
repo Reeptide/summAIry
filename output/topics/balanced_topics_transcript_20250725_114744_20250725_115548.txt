@@ -1,0 +1,16 @@
+# RAG-Generated Balanced Topics for Video Navigation
+# Generated: 2025-07-25 11:55:48
+# User: niranjani1401
+# Total Topics: 9
+# Format: Topic Name [MM:SS-MM:SS]
+# Pipeline: Video → Speech → Transcript → RAG → GUI
+
+Morphological Processing and Image Denoising [00:00-08:04]
+Homogeneity Criteria for Region Segmentation and Edge Detection Fundamentals [08:05-20:30]
+Edges, Lines, and Points in Image Processing [20:31-27:00]
+Edge Detection using First and Second Order Differencing [27:01-33:59]
+Morphological Processing and Image Denoising [00:00-08:04]
+Homogeneity Criteria for Region Segmentation [08:05-12:30]
+Edge Detection Fundamentals and Types of Edges [12:31-20:30]
+Edges, Lines, and Points in Image Processing [20:31-27:00]
+Edge Detection using First and Second Order Differencing [27:01-33:59]

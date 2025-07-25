@@ -1,0 +1,473 @@
+[00:00 - 00:21] Yes, we are in class 19 based on our reckoning and we will start off with something that
+[00:21 - 00:22] is super interesting.
+[00:22 - 00:37] So a couple of things that we covered in morphological processing, I just wanted to, okay so in morphological
+[00:37 - 00:40] processing we talked about some algorithms.
+[00:40 - 00:46] Whatever we have studied as basic processing and some of the algorithms from the text,
+[00:46 - 00:53] we can extend this to make it work for other questions that we have not specifically discussed.
+[00:53 - 00:59] For example, if you were to count, so I have just taken rice grains image, so let us just
+[00:59 - 01:01] assume this is rice.if.
+[01:01 - 01:07] If you have to count how many rice grains there are in the image, should we count these
+[01:07 - 01:08] is the question.
+[01:08 - 01:14] So portions, let us say there is a portion of the rice grain, ought this to be included
+[01:14 - 01:16] in the count or not?
+[01:16 - 01:20] No, because it is not an entire rice grain.
+[01:20 - 01:22] So how can we clean this up?
+[01:22 - 01:24] What can we do about this?
+[01:24 - 01:26] How do we remove those rice grains?
+[01:26 - 01:31] Should we erode region filling or something else?
+[01:31 - 01:34] Okay, so we can extract out connected components.
+[01:34 - 01:36] Those are connected components, right?
+[01:36 - 01:40] We can extract out all the connected components.
+[01:40 - 01:47] Any connected component that shares a, you know, common region with the borders of the
+[01:47 - 01:49] image can be cleared out, right?
+[01:49 - 01:54] So this is the border, you know how to find the image border.
+[01:54 - 02:01] So whatever is the first column, first row, last column, last row, if it is part of the
+[02:01 - 02:07] connected components extracted out for the rice image, then we can clear it out.
+[02:07 - 02:15] So there is something called, okay, there is a library function.
+[02:15 - 02:21] So clear border is an option within BWMore for in-clear borders.
+[02:21 - 02:23] So this does it for you.
+[02:23 - 02:27] But you know what could be underneath this, right?
+[02:27 - 02:32] As an algorithm or a technique or if you have to write down this, it is using all the basic
+[02:32 - 02:34] steps that we saw earlier.
+[02:34 - 02:40] If you have a scenario with, okay, some salt and pepper noise, what can we do to denoise
+[02:40 - 02:41] the median filter?
+[02:41 - 02:43] Same thing can be applied, yes.
+[02:43 - 02:44] Anything else?
+[02:44 - 02:50] So when you say median filter in the case of grayscale images, the median filter made
+[02:50 - 02:51] sense.
+[02:51 - 02:55] In the case of black and white images, so these are sprinkling of either black or white
+[02:55 - 03:00] dots, we can actually use something called the majority function.
+[03:00 - 03:06] It works very similar to median filtering except we are just counting pixels.
+[03:06 - 03:08] So what would majority look like?
+[03:08 - 03:15] It tells that it is a 3 x 3 structuring element and this morphological operation is defined
+[03:15 - 03:17] as you center this at a pixel.
+[03:17 - 03:25] If 5 or more neighbors in that 9 neighborhood happen to be white, then make the center pixel
+[03:25 - 03:27] white, otherwise make it black.
+[03:27 - 03:29] Same as median filter, right?
+[03:29 - 03:32] It is basically the same but applied to black and white images.
+[03:32 - 03:39] So there is this majority operation that can be used in the context of morphological operations.
+[03:39 - 03:45] So you will see some of these, finding the centroid, how do we do that?
+[03:45 - 03:52] Let us say that there is, I want to find the centroid of, I want to use, I want to see
+[03:52 - 03:55] where the star is present and find its centroid.
+[03:55 - 04:00] Extract out the connected component and find its centroid, how do I do that?
+[04:00 - 04:06] You can use hit or miss transform to figure out how many stars are present in the image.
+[04:06 - 04:10] To extract out the connected components, you can use connected components and how would
+[04:10 - 04:14] you find the centroid of connected components?
+[04:14 - 04:17] So finding the centroid, what is a centroid?
+[04:17 - 04:22] Once you extract the connected component, averaging all the x coordinates, averaging
+[04:22 - 04:28] all the y coordinates gives you the centroid, so there is an extract, BWMorph allows you
+[04:28 - 04:30] to extract the centroid.
+[04:30 - 04:39] For the extracted shape, is it a circle or is it close to a circle or is it not a circle?
+[04:39 - 04:40] Okay?
+[04:40 - 04:43] So we can find what is known as eccentricity and so on.
+[04:43 - 04:50] So there are lot of region properties like what is the area, what is the perimeter, centroid
+[04:50 - 04:51] of course.
+[04:51 - 04:55] What is the bounding box for some region that is extracted?
+[04:55 - 04:56] How circular is it?
+[04:56 - 04:57] Okay?
+[04:57 - 05:00] So we are going to study all of this in feature extraction.
+[05:00 - 05:05] We will revisit some of this again under feature extraction.
+[05:05 - 05:06] Is this okay?
+[05:06 - 05:11] Now like we talked about black and white images, when we come to color image processing, how
+[05:11 - 05:14] do you denoise a color image?
+[05:14 - 05:19] Each channel has to be denoised or if it is HSI, how will you denoise it?
+[05:19 - 05:24] Most of the processing for HSI will happen for the I channel, right?
+[05:24 - 05:27] The grayscale, the intensity image.
+[05:27 - 05:33] Other than let us say negation, for example we saw how the colors are inverted, H is also
+[05:33 - 05:34] rotated.
+[05:34 - 05:35] Okay?
+[05:35 - 05:36] Yeah.
+[05:36 - 05:44] So color balancing may require us to move S as well, the saturation.
+[05:44 - 05:50] Otherwise we generally do not touch H and S as much when we process HSI, images in HSI.
+[05:50 - 05:56] RGB CMY CMYK processing is channel as if it is a grayscale image.
+[05:56 - 05:57] Okay?
+[05:57 - 06:01] So with this we are ready to move on to segmentation.
+[06:01 - 06:03] What is the process of segmentation?
+[06:03 - 06:08] We want to divide any given image into spatial regions.
+[06:08 - 06:09] Okay?
+[06:09 - 06:15] So we are going to look at a bunch of rules that it has to satisfy.
+[06:15 - 06:17] I am going to use the chalk.
+[06:17 - 06:18] Okay?
+[06:18 - 06:22] So we will start off with a bunch of rules that we look at.
+[06:22 - 06:24] So what are these spatial regions?
+[06:24 - 06:29] You are fragmenting the entire image into foreground 1, foreground 2 and background
+[06:29 - 06:30] for example.
+[06:30 - 06:33] So let us just take this image.
+[06:33 - 06:39] You have 1, 2, 3, 4 foreground regions and 1 background region.
+[06:39 - 06:43] The union of all these regions gives you the original image.
+[06:43 - 06:44] Okay?
+[06:44 - 06:49] So any segmentation process we are looking at, you should be able to put all the components
+[06:49 - 06:53] back together or the masks back together.
+[06:53 - 06:55] So what will the regions actually look like?
+[06:55 - 06:58] Here you will have 5 of them.
+[06:58 - 07:03] So the background mask, generally you do not need a mask to extract out the background.
+[07:03 - 07:04] What is not foreground is background.
+[07:04 - 07:05] Okay?
+[07:05 - 07:06] But we will just show this.
+[07:06 - 07:11] So you will have, so this would be region 0 or region 1.
+[07:11 - 07:16] Then you would have, okay so just this alone since you are shading, you have this.
+[07:16 - 07:20] Everything else is black is what it means.
+[07:20 - 07:21] Right?
+[07:21 - 07:22] So and then you have this.
+[07:22 - 07:23] Okay?
+[07:23 - 07:28] Generally when we talk about region extraction or segmentation, we are talking about extracting
+[07:28 - 07:34] out foreground, separating it out from other foreground regions and whatever remains is
+[07:34 - 07:35] the background.
+[07:35 - 07:36] Is this okay?
+[07:36 - 07:42] So what else can we say about these different regions?
+[07:42 - 07:48] If something has to be called a region, it has to be a connected component.
+[07:48 - 07:54] This ri is a connected, white connected component by default.
+[07:54 - 07:57] But we are working on grayscale images.
+[07:57 - 08:02] So we are saying that it is connected in the sense of if we apply a threshold, it is one
+[08:02 - 08:04] white region or one white mask.
+[08:04 - 08:05] Okay?
+[08:05 - 08:08] So generally when we look at it in terms of mask, these are binary.
+[08:08 - 08:09] Right?
+[08:09 - 08:12] So that region is connected by some measure.
+[08:12 - 08:24] The obvious third, these are disjoint regions.
+[08:24 - 08:29] If I, okay it is possible for something to belong to both R1 and R2.
+[08:29 - 08:32] There are those sort of segmentations also.
+[08:32 - 08:39] But generally if you are calling something, for example you have the picture of a beach.
+[08:39 - 08:45] If it belongs to the region sand, it cannot also belong to the region sea and sky for
+[08:45 - 08:46] example.
+[08:46 - 08:47] Right?
+[08:47 - 08:50] It belongs to one and only one class if you will.
+[08:50 - 08:51] Okay?
+[08:51 - 08:52] So that is what this means.
+[08:52 - 09:04] The fourth one says, see this is for all i not equal to j and for all i.
+[09:04 - 09:16] So what this means is this Q is called a predicate.
+[09:16 - 09:20] It is a predicate or a homogeneity criteria.
+[09:20 - 09:26] What it says is by whatever measure we are defining a region, there should be no adjacent
+[09:26 - 09:30] region Rj to a region Ri.
+[09:30 - 09:31] Okay?
+[09:31 - 09:39] Ri and Rj adjacent such that that Q is true.
+[09:39 - 09:41] Let me just explain what it means.
+[09:41 - 09:49] If I have, instead of the circle being like this, let us say that I have an image where
+[09:49 - 09:54] I have a circle like this and the triangle like this and actually the two are connected.
+[09:54 - 10:01] As far as the connection is concerned, even though we are drawing that boundary of a circle
+[10:01 - 10:03] and the triangle, they are connected.
+[10:03 - 10:04] Right?
+[10:04 - 10:05] At one or more points.
+[10:05 - 10:11] So if I were to say that, if I were to talk about an image that looks like this, just
+[10:11 - 10:15] separating it based on what, what will Q be?
+[10:15 - 10:20] What can I define Q to be here to say something is connected?
+[10:20 - 10:22] It is just intensity values.
+[10:22 - 10:23] Right?
+[10:23 - 10:24] It can be intensity values.
+[10:24 - 10:25] It can be textures.
+[10:25 - 10:26] It can be some other statistic that we define.
+[10:26 - 10:27] In this case, it is just the intensity value.
+[10:27 - 10:38] If I define the circle and triangle as two separate regions, they are adjacent, I should
+[10:38 - 10:44] not have, in fact, let me put it the other way around.
+[10:44 - 10:51] If I were to say union, if I say two regions, if they are really adjacent and they are two
+[10:51 - 10:55] separate regions, then I look at their union, Q should be false.
+[10:55 - 10:56] Okay?
+[10:56 - 11:02] So if they are two separate regions, Q should be false.
+[11:02 - 11:06] If they are not two separate regions, Q would end up being true.
+[11:06 - 11:08] In which case, Ri and Rj are not.
+[11:08 - 11:10] Ri and Rj should be called Rk, one region.
+[11:10 - 11:18] Q can be the intensity value, it can be texture features, it can be any condition, homogeneity
+[11:18 - 11:19] criteria.
+[11:19 - 11:26] So when you say something is a region, for instance, in this example, it is intensity.
+[11:26 - 11:30] Now if I want to say, yeah, intensity is the actual value.
+[11:30 - 11:33] It is either 0 or 1 in our example.
+[11:33 - 11:34] Yes, yes, yes.
+[11:34 - 11:35] Correct.
+[11:35 - 11:36] It does not have to be just intensity.
+[11:36 - 11:43] For example, if I have a picture of a beach, you can easily see that sky can have some
+[11:43 - 11:51] clouds, you can have some ocean waves, then you will have sand particles, maybe you will
+[11:51 - 11:52] have some trees.
+[11:52 - 11:53] Okay?
+[11:53 - 11:58] So semantic segmentation, you will have something identified as trees.
+[11:58 - 11:59] Right?
+[11:59 - 12:01] Every part of the tree is not going to be the same.
+[12:01 - 12:08] The tree trunk will be brown, the leaves will have its own, you know, components and so
+[12:08 - 12:10] on, different shades.
+[12:10 - 12:16] By whatever measure I am defining something to be a region, I should not find an adjacent
+[12:16 - 12:21] pixel or an adjacent region which shares the same property, what it means.
+[12:21 - 12:23] Is this okay with everyone?
+[12:23 - 12:24] Yes, Shashank.
+[12:24 - 12:25] Yes.
+[12:25 - 12:27] No, no, Q is the, Q can be intensity itself.
+[12:27 - 12:32] Q can be any criteria by which we are saying R is a region.
+[12:32 - 12:36] Q can intensity, no, no, intensity values are not true or false.
+[12:36 - 12:43] We are saying that Ri, ?Rj, the Q of that has to be false.
+[12:43 - 12:49] What it means is, if I look at two regions put together, intensity should not be the
+[12:49 - 12:50] same value.
+[12:50 - 12:53] Like here, it should not be 1.
+[12:53 - 12:58] I should have more than one unique value or if I am saying average intensity is within
+[12:58 - 13:00] this, it is not within that.
+[13:00 - 13:01] Whatever makes Ri different from other.
+[13:01 - 13:02] It is a function.
+[13:02 - 13:03] Yes.
+[13:03 - 13:04] Yes.
+[13:04 - 13:05] The function can be anything.
+[13:05 - 13:12] So we can either treat, so I am just calling it a homogeneity criteria.
+[13:12 - 13:20] So by whatever definition I say Ri is a region, Rj should not be an adjacent region that also
+[13:20 - 13:21] has the exact same property.
+[13:21 - 13:29] So the last of these is, anyone guess what else, actually this should have come before
+[13:29 - 13:32] 4 but else should we say about this?
+[13:32 - 13:39] Just like we are saying that two regions cannot be merged and made into one single region.
+[13:39 - 13:40] That is what it is saying.
+[13:40 - 13:47] So it is maximally defined in such a way that if I add one extra pixel to it, it no longer
+[13:47 - 13:49] is a homogeneous region.
+[13:49 - 13:58] Similarly, I have to have a definition here to first of all say that Q of Ri should be
+[13:58 - 13:59] true, all i.
+[13:59 - 14:00] Is this fine?
+[14:00 - 14:06] This I should not call anything a spatial region that has subcomponents in it by the
+[14:06 - 14:07] definition.
+[14:07 - 14:13] Whatever criteria we are calling something a region, I should not be able to demarcate
+[14:13 - 14:16] and get multiple regions out of a given region.
+[14:16 - 14:17] Is this fine?
+[14:17 - 14:23] Okay, so with this in mind, let us just look at the overview of what this entire chapter
+[14:23 - 14:24] will look like for us.
+[14:24 - 14:25] Example?
+[14:25 - 14:26] Yeah, sure.
+[14:26 - 14:27] This is a binary image.
+[14:27 - 14:36] Whatever is shaded is white and what is not shaded is black, okay, for our understanding.
+[14:36 - 14:42] Defining circle as one region, triangle as another region but they are actually touching.
+[14:42 - 14:49] So Ri and Rj, the union of these two adjacent regions is also whatever, so I am saying anything
+[14:49 - 14:50] that is one is a region.
+[14:50 - 14:56] So because they are connected, this whole thing is one region.
+[14:56 - 14:59] I cannot have two subregions here by that definition.
+[14:59 - 15:00] Yes.
+[15:00 - 15:01] They are not adjacent because they are a background pixel between.
+[15:01 - 15:10] So Ri and Rj has to be, so if I say, so there is R0 in between Ri and Rj, right, in this
+[15:10 - 15:11] case.
+[15:11 - 15:13] So R0 can be considered for adjacent.
+[15:13 - 15:20] The region can be within, no, regions can be within.
+[15:20 - 15:27] I can define subregions within this, cannot add anything more to it, the adjacent regions.
+[15:27 - 15:29] Everything within this is white.
+[15:29 - 15:36] I can define smaller regions within this, can define smaller regions but not, see Ri,
+[15:36 - 15:42] once a spatially connected region when put together with the background gives back the
+[15:42 - 15:43] original image.
+[15:43 - 15:49] So what I define as Ri should not be the same as some adjacent Rj.
+[15:49 - 15:55] So we will actually see the application of this when we work on some problems or see
+[15:55 - 15:58] what kind of methods satisfy these properties, right.
+[15:58 - 16:03] So the first of these, you are already familiar with most of them.
+[16:03 - 16:10] I am going to talk about detecting points, lines and edges, defining regions based on
+[16:10 - 16:11] these.
+[16:11 - 16:17] Most of the time if you have kind of, so if you are saying tree or boat or some sort of
+[16:17 - 16:20] an entity, it has edges, right, that define it.
+[16:20 - 16:25] The edges are the first things that we are going to see which you have already seen,
+[16:25 - 16:27] okay, so starting from what you know.
+[16:27 - 16:33] The second thing that we are going to be looking at are, this hold the image.
+[16:33 - 16:37] Obviously there is some basic global threshold which we have been applying.
+[16:37 - 16:40] The entire image you look at it and apply one threshold.
+[16:40 - 16:43] There are better way to apply a threshold.
+[16:43 - 16:48] So you can look at local regions and start applying specific thresholds.
+[16:48 - 16:52] You can look at what is the distribution, how many pixels.
+[16:52 - 16:57] So you start looking at histograms and saying if I have to divide it into foreground, background
+[16:57 - 17:03] where best will the line lie and if I want to have two regions, three regions and so
+[17:03 - 17:06] on, so histogram based thresholding is possible.
+[17:06 - 17:11] You can have variable threshold, variable neighbourhood regions and so on, right.
+[17:11 - 17:13] I can adapt it a whole lot.
+[17:13 - 17:15] This is all to do with thresholding.
+[17:15 - 17:18] Third, this is region based thresholding.
+[17:18 - 17:25] Start off with seed points and say I keep growing the seed till it touches another region.
+[17:25 - 17:31] This is like saying I started with the seed, how many pixels are connected to this breadth
+[17:31 - 17:37] first, depth first, whatever you keep adding pixels to this region until you hit a non-region
+[17:37 - 17:44] pixel, non-similar pixel at which point you give a new, you treat that as a new seed and
+[17:44 - 17:46] start growing from there, okay.
+[17:46 - 17:48] So this is region growing approaches.
+[17:48 - 17:53] You also have something called region splitting merging.
+[17:53 - 17:59] Whenever you have start from a pixel and grow to image, obviously you have start from the
+[17:59 - 18:00] image and split.
+[18:00 - 18:06] So this is like a grid while you are cutting up the image into portions and checking if
+[18:06 - 18:10] these, you know, independent or homogeneous or not.
+[18:10 - 18:12] If they are not homogeneous, split it further.
+[18:12 - 18:17] Split, split, split until you end up with homogeneous regions.
+[18:17 - 18:24] So instead of doing it so naively, we can also use techniques that we already know which
+[18:24 - 18:25] is clustering, right.
+[18:25 - 18:30] We are going to see how image can be segmented using clustering.
+[18:30 - 18:34] We can also use the concept of super pixels, okay.
+[18:34 - 18:41] So really important aspect of image processing is an image can be treated as a graph.
+[18:41 - 18:43] So you process images.
+[18:43 - 18:50] So how do you first of all convert an image to a graph representation and how do you apply
+[18:50 - 18:54] algorithms on it is an entire chapter by itself.
+[18:54 - 19:00] We are just going to look at some, actually one popular segmentation technique that is
+[19:00 - 19:01] graph.
+[19:01 - 19:06] The last portion, morphological watersheds only is in your syllabus.
+[19:06 - 19:08] Texts, they cover graph cut.
+[19:08 - 19:13] We are going to touch upon this so you get that flavor of how images can be viewed as
+[19:13 - 19:14] graph.
+[19:14 - 19:17] Strictly speaking, that algorithm is not in your syllabus.
+[19:17 - 19:22] So with this, we are ready to take on the first segmentation.
+[19:22 - 19:23] Is this okay?
+[19:23 - 19:25] Are there any questions on the background?
+[19:25 - 19:30] Can someone really quickly tell me what are the different types of edges we studied?
+[19:30 - 19:35] When we find edges, what is the difference between an edge and a line?
+[19:35 - 19:39] Let us start with what is the difference between an edge and a line?
+[19:39 - 19:40] Closed line.
+[19:40 - 19:41] Okay.
+[19:41 - 19:42] Line.
+[19:42 - 19:48] You have not told me what is a line, then you have to define line for this.
+[19:48 - 19:53] Okay, so edge is an interface between two homogeneous regions, right?
+[19:53 - 19:59] A black region, a white region, there is that interface gives us an edge.
+[19:59 - 20:00] Very good.
+[20:00 - 20:05] In contrast, can give us an edge, in intensity change in contrast.
+[20:05 - 20:06] Yes, what else?
+[20:06 - 20:10] Here an edge, do you see edge of, what is this?
+[20:10 - 20:12] Kind of obfuscation, right?
+[20:12 - 20:16] One object in front of another, give an edge.
+[20:16 - 20:21] Storing, you can interpret it as something else in terms of distances, but here you are
+[20:21 - 20:26] just saying that an edge is formed because one object lies in front of the others.
+[20:26 - 20:27] Okay, what else?
+[20:27 - 20:36] Even if it is projected, I am seeing the, yes, it is edges intensity changes, any interface
+[20:36 - 20:39] between two different intensities is an edge.
+[20:39 - 20:42] What are the things that lead to an edge is what we are discussing.
+[20:42 - 20:45] We are not changing the definition of edge.
+[20:45 - 20:46] Okay.
+[20:46 - 20:47] What else?
+[20:47 - 20:51] What are the other things that can lead to an edge?
+[20:51 - 20:56] Distance, frequency, in the spatial domain only.
+[20:56 - 21:00] So you guys are all experts in frequency domain turns out.
+[21:00 - 21:03] TS was saying that is the first thing you guys try.
+[21:03 - 21:08] Okay, now we are just talking about spatial domain interpretation of edges for now.
+[21:08 - 21:09] What else?
+[21:09 - 21:10] Okay.
+[21:10 - 21:15] So curved surfaces also, wherever it is curved, you flatten it, it will look like an edge,
+[21:15 - 21:16] right?
+[21:16 - 21:22] Colour changes, something that is blue and red, again, wherever there is change in contrast,
+[21:22 - 21:26] change in colour, change in intensity mark, some boundary.
+[21:26 - 21:29] So we know a lot of conditions that lead to edges.
+[21:29 - 21:36] So basically edges characterized by one side is some shade or texture, on the other side
+[21:36 - 21:37] is another shade.
+[21:37 - 21:38] We will get to in a moment.
+[21:38 - 21:41] We will just treat it as intensity for now.
+[21:41 - 21:47] So one side you have light, one side you have dark or this also light and dark anyway.
+[21:47 - 21:48] Okay.
+[21:48 - 21:49] So we have understood this.
+[21:49 - 21:52] What can happen in any side is also something that we acknowledge.
+[21:52 - 21:54] So we have different directions to find.
+[21:54 - 21:58] We have vertical edges, horizontal edges, diagonal edges.
+[21:58 - 22:00] Okay, edges are sorted.
+[22:00 - 22:02] What is a line?
+[22:02 - 22:05] So is a line different from an edge?
+[22:05 - 22:06] Okay.
+[22:06 - 22:08] Instead line segments.
+[22:08 - 22:10] Okay, but what is that line?
+[22:10 - 22:12] It is connected segment.
+[22:12 - 22:14] Okay, that is absolutely correct.
+[22:14 - 22:17] But how is it connected segment?
+[22:17 - 22:20] So what happens on either side of it?
+[22:20 - 22:26] You can think of it as the same shade and there is a thin connected segment of a different
+[22:26 - 22:27] shade.
+[22:27 - 22:31] Or yes, you can interpret it edges also.
+[22:31 - 22:38] But essentially in an edge you are saying one side, so you have some side that is light
+[22:38 - 22:41] or dark, however you want to interpret this.
+[22:41 - 22:43] There is a difference.
+[22:43 - 22:45] This is an edge.
+[22:45 - 22:52] Whereas for a line you have a scenario where both sides it is the same.
+[22:52 - 22:54] If you call it side, right?
+[22:54 - 22:58] This is the difference between a line and an edge.
+[22:58 - 23:00] This is a point.
+[23:00 - 23:03] All sides it is the same thing.
+[23:03 - 23:06] So what leads to a point?
+[23:06 - 23:09] What scenarios will we end up seeing points?
+[23:09 - 23:12] So isolated point is the most common scenario.
+[23:12 - 23:16] We have already seen this in morphological processing, right?
+[23:16 - 23:19] One white point surrounded by all black.
+[23:19 - 23:24] Same as salt noise which we just saw you can use majority and clear it off.
+[23:24 - 23:26] Erosion and clear it.
+[23:26 - 23:28] But we want to detect it.
+[23:28 - 23:30] We detect isolated points.
+[23:30 - 23:37] One pixel surrounded by pixels of the opposite shade or a different shade, color, any of
+[23:37 - 23:38] these, right?
+[23:38 - 23:42] Because we are not just restricting to binary images alone.
+[23:42 - 23:46] So all of these will help detect a point.
+[23:46 - 23:49] What other scenarios leads to point?
+[23:49 - 23:52] Noise, yeah, noise of course correct.
+[23:52 - 23:55] The edge of a table, the edge of a chair, right?
+[23:55 - 24:00] Point at which two lines meet or two edges meet.
+[24:00 - 24:02] Those are also corners.
+[24:02 - 24:05] Corners are also key points for us.
+[24:05 - 24:09] What can we use to detect edges?
+[24:09 - 24:14] Or let me ask you what are the different sort of edges that we saw?
+[24:14 - 24:19] You can have a constant scenario where there is no change.
+[24:19 - 24:21] So there is no edge at all.
+[24:21 - 24:26] So how do we detect the presence of change, difference?
+[24:26 - 24:33] So you can either have first order differencing, difference of difference which is.
+[24:33 - 24:39] You can have left difference, right difference, central difference.
+[24:39 - 24:41] What is central difference?
+[24:41 - 24:43] We have not really seen it.
+[24:43 - 24:45] What is left difference?
+[24:45 - 24:48] Pixel minus the left neighbor, left difference.
+[24:48 - 24:51] Pixel minus the right neighbor, right difference.
+[24:51 - 24:59] Pixel minus average of left and right neighbor can be thought of as central difference.
+[24:59 - 25:04] What is difference of difference, second order differencing, what does that look like?
+[25:04 - 25:07] Yeah, this is basically if you add.
+[25:07 - 25:10] So where is all this coming from?
+[25:10 - 25:20] If you think of Taylor series expansion, this is f of x plus delta x, perfect, by 2 factorial
+[25:20 - 25:29] into f of x, into f of x or into delta of f of x or what is it?
+[25:29 - 25:30] This?
+[25:30 - 25:32] No, do not remember.
+[25:32 - 25:33] Minus?
+[25:33 - 25:38] You guys studied Taylor series expansion, right, somewhere, first time.
+[25:38 - 25:40] Okay, so what is it?
+[25:40 - 25:42] What does it look like?
+[25:42 - 25:46] Split a function into infinite sum or are you approximating something?
+[25:46 - 25:55] All Taylor series approximation, you are approximating, what is it that is trying to approximate?
+[25:55 - 26:01] Value of a function, so you know f of x, you know f at x, you are trying to figure out
+[26:01 - 26:05] what is f at some x plus delta x, right?
+[26:05 - 26:08] Is not that what you are approximating?
+[26:08 - 26:12] What is f of x plus delta x approximated by?
+[26:12 - 26:19] You need to know how f is changing, changes in x to be able to approximate what the functional
+[26:19 - 26:20] value is, right?
+[26:20 - 26:25] That is at the heart of coming up with the Taylor series approximation.
+[26:25 - 26:30] Is it f of x plus dash x plus dash x?
+[26:30 - 26:33] So where is the delta x?
+[26:33 - 26:34] By 2?
+[26:34 - 26:39] Okay, you guys googling Taylor series, what do you find?
+[26:39 - 26:42] What does the expansion look like?
+[26:42 - 26:44] Lx square, yeah, okay.
+[26:44 - 26:49] It does not matter, first let us understand what is Taylor series expansion and then we
+[26:49 - 26:53] look at is it too small, you know to be ignored and all of that.
+[26:53 - 26:54] So what is this?
+[26:54 - 27:00] f of x plus delta x is equal to f of x, is this okay?
+[27:00 - 27:07] Okay, so you should remember everything you have studied previously is what we are seeing
+[27:07 - 27:08] here.
+[27:08 - 27:14] What is it that you found you can tell me, we will try and, perfect.
+[27:14 - 27:22] 1 by 2 factorial f dash x, 2x, yeah, so we want to know how much changing with small
+[27:22 - 27:26] changes in x, that is what we are trying to figure out.
+[27:26 - 27:28] So what is f dash x for us?
+[27:28 - 27:32] Change in x with respect to x, is fine, okay.
+[27:32 - 27:34] So what is on the left hand side?
+[27:34 - 27:41] What is it approximating then, so then, f of x plus delta x, okay.
+[27:41 - 27:46] Okay, let me use this, able to, so is this x or del x?
+[27:46 - 27:49] Is this x square or delta?
+[27:49 - 27:58] Okay, if you want to calculate, so let us say our, you look at the equivalent here,
+[27:58 - 28:03] you are looking at how much this delta, does not matter which delta you use, we just say
+[28:03 - 28:11] delta x is x plus 1 in our case, what will our f dash x turn out to be?
+[28:11 - 28:22] Not 1, it is f of x plus 1 minus 2x, in fact 2 factorial into f of, into 1 is this, 2 into
+[28:22 - 28:28] f of 1 minus of f of x is our f dash x, is this fine?
+[28:28 - 28:29] No.
+[28:29 - 28:36] So the reason I wanted to show this is, where are those first and second order differences
+[28:36 - 28:37] coming from, right?
+[28:37 - 28:42] We are just trying to, because these are not, lot of this is coming from continuous calculus,
+[28:42 - 28:50] but we are dealing with digital sets or discrete images, so we cannot say derivative of something
+[28:50 - 28:57] can, but it really is going to end up being approximated by differences, is this fine?
+[28:57 - 29:00] What is not okay?
+[29:00 - 29:01] Yes.
+[29:01 - 29:03] Okay, yeah.
+[29:03 - 29:04] Okay.
+[29:04 - 29:22] First one is 1 factorial, okay, okay, okay, 1 factorial is 1 anyway, by 1 factorial, okay,
+[29:22 - 29:23] okay.
+[29:23 - 29:37] So in our case we said delta x is 1, so multiplied by 1 is okay, 1 squared and so on, fine.
+[29:37 - 29:48] So then let us look at what, so this is just 1, what is f of x minus 1, f of x plus, so
+[29:48 - 29:53] this will be minus dash x, is this okay?
+[29:53 - 30:01] We do 1 plus 2, what will we end up with?
+[30:01 - 30:11] Times f of x, yeah, so the even number terms by 2 factorial, what is f double dash x, second
+[30:11 - 30:18] order derivative, anyway by factorial does not matter, is this okay?
+[30:18 - 30:22] Where we are getting the second order difference from?
+[30:22 - 30:28] Just approximation, but this is what we can use, it is also difference of difference we
+[30:28 - 30:30] have already seen the last time.
+[30:30 - 30:35] So if we use the first order difference, it can be left difference, right difference or
+[30:35 - 30:39] we said central difference, what are we going to do with this?
+[30:39 - 30:43] How do we detect the presence of any edge?
+[30:43 - 30:50] So we said the absolute, maximum of the absolute or setting a threshold on the absolute difference,
+[30:50 - 30:52] right, on the magnitude itself.
+[30:52 - 30:55] Second order difference what do we do?
+[30:55 - 31:01] We are crossing, is what we saw, we have a change in sign, minus to plus, minus, you
+[31:01 - 31:05] end up collecting, so inflection or change.
+[31:05 - 31:09] So what are the operators we have seen for edge detection earlier?
